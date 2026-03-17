@@ -9,16 +9,18 @@ using Stride.Rendering;
 namespace MorphTargetSample
 {
     /// <summary>
-    /// Loads the Khronos AnimatedMorphCube glTF model and verifies morph target import.
-    /// Press G to load/toggle the glTF morph cube.
-    /// Press 1/2 to toggle morph weights manually.
-    /// Press A to play a looping morph weight animation (created programmatically).
-    /// Press S to stop the animation.
+    /// Morph target (blend shape) demo.
+    /// Attach to an entity with a ModelComponent that has morph targets.
+    /// Auto-plays a looping morph weight animation on Start.
+    ///
+    /// Controls:
+    ///   A     - Toggle auto-animation
+    ///   1 / 2 - Toggle morph target 0 / 1 manually
+    ///   Space - Reset all weights to 0
     /// </summary>
     public class GltfMorphTestScript : SyncScript
     {
         private ModelComponent mc;
-        private bool loaded;
         private float[] weights;
         private AnimationComponent animComponent;
         private bool animPlaying;
@@ -26,69 +28,80 @@ namespace MorphTargetSample
         public override void Start()
         {
             EnsureMorphTargetRenderFeature();
+
+            mc = Entity.Get<ModelComponent>();
+            if (mc?.Model == null || mc.Model.Meshes.Count == 0)
+            {
+                Log.Error("GltfMorphTestScript requires a ModelComponent with a model");
+                return;
+            }
+
+            var mesh = mc.Model.Meshes[0];
+            var targetCount = mesh.MorphTargets?.MorphTargetCount ?? 0;
+            weights = new float[targetCount];
+
+            if (mesh.MorphTargets != null)
+            {
+                Log.Info($"MorphTargets: {targetCount} targets, normals={mesh.MorphTargets.HasNormals}, tangents={mesh.MorphTargets.HasTangents}");
+            }
+
+            Log.Info($"Morph cube ready ({targetCount} targets). A=animate, 1/2=toggle, Space=reset.");
+
+            if (targetCount > 0)
+                StartAnimation();
         }
 
         public override void Update()
         {
-            if (Input.IsKeyPressed(Keys.G))
+            if (mc == null) return;
+
+            // A = toggle animation
+            if (Input.IsKeyPressed(Keys.A))
             {
-                if (!loaded)
-                    LoadGltfModel();
+                if (animPlaying)
+                    StopAnimation();
                 else
-                    ToggleVisibility();
+                    StartAnimation();
             }
 
-            if (!loaded || mc == null) return;
-
+            // Manual weight control
             bool changed = false;
             if (Input.IsKeyPressed(Keys.D1))
             {
+                if (animPlaying) StopAnimation();
                 weights[0] = weights[0] > 0.5f ? 0 : 1;
                 changed = true;
             }
             if (Input.IsKeyPressed(Keys.D2) && weights.Length > 1)
             {
+                if (animPlaying) StopAnimation();
                 weights[1] = weights[1] > 0.5f ? 0 : 1;
                 changed = true;
             }
             if (Input.IsKeyPressed(Keys.Space))
             {
+                if (animPlaying) StopAnimation();
                 for (int i = 0; i < weights.Length; i++) weights[i] = 0;
                 changed = true;
             }
 
             if (changed)
             {
-                // Stop animation if manually changing weights
-                if (animPlaying) StopAnimation();
                 for (int i = 0; i < weights.Length; i++)
                     mc.SetMorphWeight(0, i, weights[i]);
-                Log.Info($"glTF weights: {string.Join(", ", weights)}");
             }
-
-            // A = play morph weight animation
-            if (Input.IsKeyPressed(Keys.A) && !animPlaying)
-                PlayMorphAnimation();
-
-            // S = stop animation
-            if (Input.IsKeyPressed(Keys.S) && animPlaying)
-                StopAnimation();
         }
 
-        private void PlayMorphAnimation()
+        private void StartAnimation()
         {
-            var entity = Entity.Scene.Entities.FirstOrDefault(e => e.Name == "GltfMorphCube");
-            if (entity == null) return;
-
-            var targetCount = mc.Model.Meshes[0].MorphTargets?.MorphTargetCount ?? 0;
+            var targetCount = weights.Length;
             if (targetCount == 0) return;
 
-            // Build a looping animation clip that oscillates morph weights
             var clip = new AnimationClip();
             clip.RepeatMode = AnimationRepeatMode.LoopInfinite;
             clip.Duration = TimeSpan.FromSeconds(2.0);
 
-            // Target 0: 0 → 1 → 0 over 2 seconds (triangle wave)
+            // Target 0: triangle wave 0 → 1 → 0
             var curve0 = new AnimationCurve<float>();
             curve0.InterpolationType = AnimationCurveInterpolationType.Linear;
             curve0.KeyFrames.Add(new KeyFrameData<float>(CompressedTimeSpan.Zero, 0f));
@@ -98,7 +111,7 @@ namespace MorphTargetSample
 
             if (targetCount > 1)
             {
-                // Target 1: offset by half phase — 1 → 0 → 1
+                // Target 1: opposite phase 1 → 0 → 1
                 var curve1 = new AnimationCurve<float>();
                 curve1.InterpolationType = AnimationCurveInterpolationType.Linear;
                 curve1.KeyFrames.Add(new KeyFrameData<float>(CompressedTimeSpan.Zero, 1f));
@@ -107,12 +120,10 @@ namespace MorphTargetSample
                 clip.AddCurve("[ModelComponent.Key].MeshInfos[0].MorphWeights[1]", curve1);
             }
 
-            animComponent = entity.GetOrCreate<AnimationComponent>();
+            animComponent = Entity.GetOrCreate<AnimationComponent>();
             animComponent.Animations["MorphLoop"] = clip;
             animComponent.Play("MorphLoop");
             animPlaying = true;
-
-            Log.Info("Playing morph weight animation (press S to stop)");
         }
 
         private void StopAnimation()
@@ -121,72 +132,6 @@ namespace MorphTargetSample
             {
                 animComponent.PlayingAnimations.Clear();
                 animPlaying = false;
-                Log.Info("Stopped morph weight animation");
-            }
-        }
-
-        private void LoadGltfModel()
-        {
-            try
-            {
-                var model = Content.Load<Model>("Models/AnimatedMorphCube");
-                if (model == null)
-                {
-                    Log.Error("Failed to load AnimatedMorphCube model");
-                    return;
-                }
-
-                Log.Info($"Loaded AnimatedMorphCube: {model.Meshes.Count} meshes");
-
-                for (int m = 0; m < model.Meshes.Count; m++)
-                {
-                    var mesh = model.Meshes[m];
-                    Log.Info($"  Mesh[{m}] '{mesh.Name}': {mesh.Draw.VertexBuffers.Length} VBs, {mesh.Draw.DrawCount} indices");
-
-                    if (mesh.MorphTargets != null)
-                    {
-                        Log.Info($"  MorphTargets: {mesh.MorphTargets.MorphTargetCount} targets, " +
-                                 $"normals={mesh.MorphTargets.HasNormals}, tangents={mesh.MorphTargets.HasTangents}");
-                        for (int t = 0; t < mesh.MorphTargets.MorphTargetCount; t++)
-                        {
-                            var desc = mesh.MorphTargets.MorphTargets[t];
-                            Log.Info($"    [{t}] '{desc.Name}' defaultWeight={desc.DefaultWeight}");
-                        }
-                    }
-                    else
-                    {
-                        Log.Warning($"  No MorphTargets on mesh[{m}]!");
-                    }
-                }
-
-                // Attach to a new entity
-                mc = new ModelComponent { Model = model };
-                var entity = new Entity("GltfMorphCube") { mc };
-                entity.Transform.Position = new Vector3(-0.5f, 0.8f, 0f);
-                entity.Transform.Scale = new Vector3(0.15f);
-                entity.Transform.Rotation = Quaternion.RotationYawPitchRoll(
-                    MathUtil.DegreesToRadians(30), MathUtil.DegreesToRadians(20), 0);
-                Entity.Scene.Entities.Add(entity);
-
-                var targetCount = model.Meshes[0].MorphTargets?.MorphTargetCount ?? 0;
-                weights = new float[targetCount];
-                loaded = true;
-
-                Log.Info($"glTF morph cube spawned with {targetCount} targets. Press 1/2 to toggle, A to animate, Space to reset.");
-            }
-            catch (Exception ex)
-            {
-                Log.Error($"Error loading glTF model: {ex.Message}");
-            }
-        }
-
-        private void ToggleVisibility()
-        {
-            var entity = Entity.Scene.Entities.FirstOrDefault(e => e.Name == "GltfMorphCube");
-            if (entity != null)
-            {
-                entity.Get<ModelComponent>().Enabled = !entity.Get<ModelComponent>().Enabled;
-                Log.Info($"glTF morph cube visibility: {entity.Get<ModelComponent>().Enabled}");
             }
         }
 
