@@ -256,6 +256,66 @@ namespace Stride.Assets.Models
                     }
                 }
 
+                // Morph target weight animation support
+                // Morph weight curves are stored in animationClips as "MorphWeights[{targetIndex}]" channels,
+                // keyed by mesh/node name. Remap them to the ModelComponent update path:
+                //   [ModelComponent.Key].MeshInfos[{meshIndex}].MorphWeights[{targetIndex}]
+                {
+                    // Load model to build mesh name → mesh index mapping
+                    var model = LoadModel(commandContext, contentManager);
+                    if (model != null)
+                    {
+                        // Build mapping from node name to mesh indices
+                        // (multiple meshes may share a node name if the node has multiple mesh instances)
+                        var meshNameToIndices = new Dictionary<string, List<int>>();
+                        for (int mi = 0; mi < model.Meshes.Count; mi++)
+                        {
+                            var meshName = model.Meshes[mi].Name;
+                            if (meshName != null)
+                            {
+                                if (!meshNameToIndices.TryGetValue(meshName, out var indices))
+                                {
+                                    indices = new List<int>();
+                                    meshNameToIndices[meshName] = indices;
+                                }
+                                indices.Add(mi);
+                            }
+                        }
+
+                        foreach (var clipEntry in animationClips)
+                        {
+                            var nodeName = clipEntry.Key;
+                            var nodeClip = clipEntry.Value;
+
+                            // Check if this clip has morph weight channels
+                            var morphChannels = new List<KeyValuePair<string, AnimationClip.Channel>>();
+                            foreach (var channel in nodeClip.Channels)
+                            {
+                                if (channel.Key.StartsWith("MorphWeights[", StringComparison.Ordinal))
+                                    morphChannels.Add(channel);
+                            }
+
+                            if (morphChannels.Count == 0)
+                                continue;
+
+                            // Find mesh indices matching this node name
+                            if (!meshNameToIndices.TryGetValue(nodeName, out var meshIndices))
+                                continue;
+
+                            foreach (var meshIndex in meshIndices)
+                            {
+                                foreach (var channel in morphChannels)
+                                {
+                                    // channel.Key is "MorphWeights[{targetIndex}]"
+                                    var curve = nodeClip.Curves[channel.Value.CurveIndex];
+                                    var targetPath = $"[ModelComponent.Key].MeshInfos[{meshIndex}].{channel.Key}";
+                                    animationClip.AddCurve(targetPath, curve);
+                                }
+                            }
+                        }
+                    }
+                }
+
                 if (ImportCustomAttributes)
                 {
                     // Add clips clips animating other properties than node transformations

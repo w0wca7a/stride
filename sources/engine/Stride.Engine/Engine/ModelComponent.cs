@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Linq;
 using Stride.Core;
 using Stride.Core.Annotations;
 using Stride.Core.Collections;
@@ -41,6 +42,12 @@ namespace Stride.Engine
             /// The current blend matrices of a skinned meshes, transforming from mesh space to world space, for each bone.
             /// </summary>
             public Matrix[] BlendMatrices;
+
+            /// <summary>
+            /// The current morph target weights for this mesh (one per morph target).
+            /// Values are typically in the range [0, 1].
+            /// </summary>
+            public float[] MorphWeights;
 
             /// <summary>
             /// The meshes current bounding box in world space.
@@ -119,7 +126,8 @@ namespace Stride.Engine
         /// <summary>
         /// Gets the current per-entity state for each mesh in the associated model.
         /// </summary>
-        [DataMemberIgnore]
+        [DataMemberIgnore, DataMemberUpdatable]
+        [DataMember]
         public IReadOnlyList<MeshInfo> MeshInfos => meshInfos;
 
         private void CheckSkeleton()
@@ -201,6 +209,127 @@ namespace Stride.Engine
             return 0;
         }
 
+        /// <summary>
+        /// Gets the morph target weight for a specific mesh and morph target by name.
+        /// </summary>
+        /// <param name="meshIndex">Index of the mesh.</param>
+        /// <param name="morphTargetName">Name of the morph target.</param>
+        /// <returns>The current weight, or 0 if not found.</returns>
+        public float GetMorphWeight(int meshIndex, string morphTargetName)
+        {
+            if (model == null || meshIndex < 0 || meshIndex >= model.Meshes.Count)
+                return 0f;
+
+            var mesh = model.Meshes[meshIndex];
+            if (mesh.MorphTargets?.MorphTargets == null)
+                return 0f;
+
+            CheckSkeleton(); // Ensure meshInfos is up to date
+            var meshInfo = meshInfos[meshIndex];
+            if (meshInfo.MorphWeights == null)
+                return 0f;
+
+            for (int i = 0; i < mesh.MorphTargets.MorphTargets.Length; i++)
+            {
+                if (mesh.MorphTargets.MorphTargets[i].Name == morphTargetName)
+                    return meshInfo.MorphWeights[i];
+            }
+
+            return 0f;
+        }
+
+        /// <summary>
+        /// Sets the morph target weight for a specific mesh and morph target by name.
+        /// </summary>
+        /// <param name="meshIndex">Index of the mesh.</param>
+        /// <param name="morphTargetName">Name of the morph target.</param>
+        /// <param name="weight">The weight to set (typically 0 to 1).</param>
+        /// <returns>True if the morph target was found and set.</returns>
+        public bool SetMorphWeight(int meshIndex, string morphTargetName, float weight)
+        {
+            if (model == null || meshIndex < 0 || meshIndex >= model.Meshes.Count)
+                return false;
+
+            var mesh = model.Meshes[meshIndex];
+            if (mesh.MorphTargets?.MorphTargets == null)
+                return false;
+
+            CheckSkeleton(); // Ensure meshInfos is up to date
+            var meshInfo = meshInfos[meshIndex];
+            if (meshInfo.MorphWeights == null)
+                return false;
+
+            for (int i = 0; i < mesh.MorphTargets.MorphTargets.Length; i++)
+            {
+                if (mesh.MorphTargets.MorphTargets[i].Name == morphTargetName)
+                {
+                    meshInfo.MorphWeights[i] = weight;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Sets the morph target weight for a specific mesh by morph target index.
+        /// </summary>
+        /// <param name="meshIndex">Index of the mesh.</param>
+        /// <param name="morphTargetIndex">Index of the morph target.</param>
+        /// <param name="weight">The weight to set (typically 0 to 1).</param>
+        public void SetMorphWeight(int meshIndex, int morphTargetIndex, float weight)
+        {
+            if (model == null || meshIndex < 0 || meshIndex >= model.Meshes.Count)
+                return;
+
+            CheckSkeleton(); // Ensure meshInfos is up to date
+            var meshInfo = meshInfos[meshIndex];
+            if (meshInfo.MorphWeights != null && morphTargetIndex >= 0 && morphTargetIndex < meshInfo.MorphWeights.Length)
+            {
+                meshInfo.MorphWeights[morphTargetIndex] = weight;
+            }
+        }
+
+        /// <summary>
+        /// Sets the morph target weight by name across all meshes that have a morph target with that name.
+        /// </summary>
+        /// <param name="morphTargetName">Name of the morph target.</param>
+        /// <param name="weight">The weight to set (typically 0 to 1).</param>
+        public void SetMorphWeight(string morphTargetName, float weight)
+        {
+            if (model == null)
+                return;
+
+            for (int meshIndex = 0; meshIndex < model.Meshes.Count; meshIndex++)
+            {
+                SetMorphWeight(meshIndex, morphTargetName, weight);
+            }
+        }
+
+        /// <summary>
+        /// Gets the names of all morph targets across all meshes.
+        /// </summary>
+        /// <returns>A list of unique morph target names.</returns>
+        public IReadOnlyList<string> GetMorphTargetNames()
+        {
+            if (model == null)
+                return Array.Empty<string>();
+
+            var names = new HashSet<string>();
+            foreach (var mesh in model.Meshes)
+            {
+                if (mesh.MorphTargets?.MorphTargets != null)
+                {
+                    foreach (var target in mesh.MorphTargets.MorphTargets)
+                    {
+                        names.Add(target.Name);
+                    }
+                }
+            }
+
+            return names.ToList();
+        }
+
         private void ModelUpdated()
         {
             if (model != null)
@@ -214,6 +343,16 @@ namespace Stride.Engine
 
                     if (mesh.Skinning != null)
                         meshData.BlendMatrices = new Matrix[mesh.Skinning.Bones.Length];
+
+                    if (mesh.MorphTargets?.MorphTargets != null)
+                    {
+                        meshData.MorphWeights = new float[mesh.MorphTargets.MorphTargets.Length];
+                        // Initialize with default weights
+                        for (int i = 0; i < mesh.MorphTargets.MorphTargets.Length; i++)
+                        {
+                            meshData.MorphWeights[i] = mesh.MorphTargets.MorphTargets[i].DefaultWeight;
+                        }
+                    }
                 }
 
                 if (skeleton != null)
