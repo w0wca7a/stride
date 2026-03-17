@@ -265,8 +265,8 @@ namespace Stride.Assets.Models
                     var model = LoadModel(commandContext, contentManager);
                     if (model != null)
                     {
-                        // Build mapping from node name to mesh indices
-                        // (multiple meshes may share a node name if the node has multiple mesh instances)
+                        // Build mapping from mesh name to mesh indices
+                        // (multiple meshes may share a name if the node has multiple mesh instances)
                         var meshNameToIndices = new Dictionary<string, List<int>>();
                         for (int mi = 0; mi < model.Meshes.Count; mi++)
                         {
@@ -282,9 +282,30 @@ namespace Stride.Assets.Models
                             }
                         }
 
+                        // Also build node name → mesh indices mapping (Assimp morph anim names
+                        // sometimes reference the node/object name rather than the mesh name)
+                        var nodeNameToMeshIndices = new Dictionary<string, List<int>>();
+                        for (int mi = 0; mi < model.Meshes.Count; mi++)
+                        {
+                            var nodeIdx = model.Meshes[mi].NodeIndex;
+                            if (nodeIdx >= 0 && nodeIdx < modelSkeleton.Nodes.Length)
+                            {
+                                var nodeName2 = modelSkeleton.Nodes[nodeIdx].Name;
+                                if (nodeName2 != null)
+                                {
+                                    if (!nodeNameToMeshIndices.TryGetValue(nodeName2, out var indices))
+                                    {
+                                        indices = new List<int>();
+                                        nodeNameToMeshIndices[nodeName2] = indices;
+                                    }
+                                    indices.Add(mi);
+                                }
+                            }
+                        }
+
                         foreach (var clipEntry in animationClips)
                         {
-                            var nodeName = clipEntry.Key;
+                            var clipName = clipEntry.Key;
                             var nodeClip = clipEntry.Value;
 
                             // Check if this clip has morph weight channels
@@ -298,9 +319,15 @@ namespace Stride.Assets.Models
                             if (morphChannels.Count == 0)
                                 continue;
 
-                            // Find mesh indices matching this node name
-                            if (!meshNameToIndices.TryGetValue(nodeName, out var meshIndices))
-                                continue;
+                            // Find mesh indices matching this clip name (try mesh name first, then node name)
+                            if (!meshNameToIndices.TryGetValue(clipName, out var meshIndices))
+                            {
+                                if (!nodeNameToMeshIndices.TryGetValue(clipName, out meshIndices))
+                                {
+                                    commandContext.Logger.Verbose($"Morph weight animation clip '{clipName}' has no matching mesh or node name, skipping.");
+                                    continue;
+                                }
+                            }
 
                             foreach (var meshIndex in meshIndices)
                             {
@@ -310,6 +337,7 @@ namespace Stride.Assets.Models
                                     var curve = nodeClip.Curves[channel.Value.CurveIndex];
                                     var targetPath = $"[ModelComponent.Key].MeshInfos[{meshIndex}].{channel.Key}";
                                     animationClip.AddCurve(targetPath, curve);
+                                    commandContext.Logger.Verbose($"Mapped morph weight animation: {clipName}.{channel.Key} → {targetPath}");
                                 }
                             }
                         }
