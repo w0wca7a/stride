@@ -2,7 +2,7 @@
 Id: 5a58611c-b0e2-4c5c-87b6-4f1c7d1d9fb8
 SerializedVersion: {Stride: 2.1.0.2}
 Tags: []
-Archetype: 9af53371-51ba-49fc-b420-ee7874892e75:DefaultGraphicsCompositorLevel9
+Archetype: 588b4b0c-5c73-4fab-82f7-cf9a25b8295c:DefaultGraphicsCompositorLevel10
 Cameras:
     de2e75c3b2b23e54162686363f3f138e:
         Id: 22bcc8d3-c313-44e5-bd64-162552176f0d
@@ -40,6 +40,7 @@ RenderFeatures:
                 ShadowMapRenderStage: ref!! c0524e55-4061-464d-84dd-7c4c70f70e0e
         RenderFeatures:
             86b959cbdf51a1438d4973177c77c627: !Stride.Rendering.TransformRenderFeature,Stride.Engine {}
+            a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6: !Stride.Rendering.MorphTargetRenderFeature,Stride.Engine {}
             8e0351fee9883922648a11016224b195: !Stride.Rendering.SkinningRenderFeature,Stride.Engine {}
             f5a2017030ba4b28784e804807ce7628: !Stride.Rendering.Materials.MaterialRenderFeature,Stride.Engine {}
             65743b4380f4cc43b2b4bdc23cd0c07c: !Stride.Rendering.Lights.ForwardLightingRenderFeature,Stride.Engine

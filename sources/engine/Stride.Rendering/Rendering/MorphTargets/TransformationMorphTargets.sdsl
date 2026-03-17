@@ -1,0 +1,45 @@
+// Copyright (c) .NET Foundation and Contributors (https://dotnetfoundation.org/ & https://stride3d.net)
+// Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
+
+/// <summary>
+/// Performs morph target deformation on vertex positions.
+/// </summary>
+#ifndef MorphTargetMaxCount
+# define MorphTargetMaxCount 8
+#endif
+
+shader TransformationMorphTargets : TransformationBase, PositionStream4
+{
+    stage stream float4 MorphPosDelta0 : MORPHDELTA0;
+    stage stream float4 MorphPosDelta1 : MORPHDELTA1;
+    stage stream float4 MorphPosDelta2 : MORPHDELTA2;
+    stage stream float4 MorphPosDelta3 : MORPHDELTA3;
+    stage stream float4 MorphPosDelta4 : MORPHDELTA4;
+    stage stream float4 MorphPosDelta5 : MORPHDELTA5;
+    stage stream float4 MorphPosDelta6 : MORPHDELTA6;
+    stage stream float4 MorphPosDelta7 : MORPHDELTA7;
+
+    cbuffer PerDraw
+    {
+        stage float MorphWeights[MorphTargetMaxCount];
+        stage int MorphTargetActiveCount;
+    }
+
+    override stage void PreTransformPosition()
+    {
+        base.PreTransformPosition();
+        float3 posDelta = float3(0, 0, 0);
+        int count = min(MorphTargetActiveCount, MorphTargetMaxCount);
+
+        if (count > 0) posDelta += streams.MorphPosDelta0.xyz * MorphWeights[0];
+        if (count > 1) posDelta += streams.MorphPosDelta1.xyz * MorphWeights[1];
+        if (count > 2) posDelta += streams.MorphPosDelta2.xyz * MorphWeights[2];
+        if (count > 3) posDelta += streams.MorphPosDelta3.xyz * MorphWeights[3];
+        if (count > 4) posDelta += streams.MorphPosDelta4.xyz * MorphWeights[4];
+        if (count > 5) posDelta += streams.MorphPosDelta5.xyz * MorphWeights[5];
+        if (count > 6) posDelta += streams.MorphPosDelta6.xyz * MorphWeights[6];
+        if (count > 7) posDelta += streams.MorphPosDelta7.xyz * MorphWeights[7];
+
+        streams.Position.xyz += posDelta;
+    }
+};
