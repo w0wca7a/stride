@@ -694,9 +694,8 @@ namespace Stride.Importer.ThreeD
                 }
 
                 // Property name uses integer index for compatibility with ArrayUpdateResolver.
-                // ImportModelCommand.Animation.cs needs to remap these to:
+                // ImportModelCommand.Animation.cs remaps these to:
                 //   [ModelComponent.Key].MeshInfos[{meshIndex}].MorphWeights[{morphIdx}]
-                // TODO: Add morph weight channel remapping in ImportModelCommand.Animation.cs
                 var propertyName = $"MorphWeights[{morphIdx}]";
                 animationClip.AddCurve(propertyName, animationCurve, false);
 
