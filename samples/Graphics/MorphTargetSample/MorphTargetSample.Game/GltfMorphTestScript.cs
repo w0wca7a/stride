@@ -96,7 +96,10 @@ namespace MorphTargetSample
                 // Attach to a new entity
                 mc = new ModelComponent { Model = model };
                 var entity = new Entity("GltfMorphCube") { mc };
-                entity.Transform.Position = new Vector3(2, 0, 0);
+                entity.Transform.Position = new Vector3(-0.5f, 0.8f, 0f);
+                entity.Transform.Scale = new Vector3(0.15f);
+                entity.Transform.Rotation = Quaternion.RotationYawPitchRoll(
+                    MathUtil.DegreesToRadians(30), MathUtil.DegreesToRadians(20), 0);
                 Entity.Scene.Entities.Add(entity);
 
                 var targetCount = model.Meshes[0].MorphTargets?.MorphTargetCount ?? 0;

@@ -1,0 +1,15 @@
+!Model
+Id: d5a7dc9b-4ce5-4e00-beb9-3b341aca4f6d
+SerializedVersion: {Stride: 2.0.0.0}
+Tags: []
+Source: !file ../../../Resources/Models/AnimatedMorphCube.glb
+Skeleton: 8cf52fc7-0434-408c-9702-667796749a4c:Models/AnimatedMorphCube Skeleton
+PivotPosition: {X: 0.0, Y: 0.0, Z: 0.0}
+Materials:
+    bafe2d1d4b1c85b2b032d847b57c4008:
+        Name: Material
+        MaterialInstance:
+            Material: 8d9eb7c2-f065-4ba2-9e1b-e8aa3c1fb6e6:Models/Material
+Modifiers: {}
+~SourceHashes:
+    5e422d98a494b5472e7668c0efe63935~../../../Resources/Models/AnimatedMorphCube.glb: 884f113b876bdb93c620a9a1f5ac20f0

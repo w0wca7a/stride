@@ -28,6 +28,7 @@ namespace Stride.Assets.Models
         public bool Allow32BitIndex { get; set; }
         public int MaxInputSlots { get; set; }
         public bool DeduplicateMaterials { get; set; }
+        public bool ImportMorphTargets { get; set; } = true;
         public List<ModelMaterial> Materials { get; set; }
         public string EffectName { get; set; }
 
@@ -65,6 +66,15 @@ namespace Stride.Assets.Models
             if (!CheckInputSlots(commandContext, model))
             {
                 return null;
+            }
+
+            // Strip morph targets if import is disabled
+            if (!ImportMorphTargets)
+            {
+                foreach (var mesh in model.Meshes)
+                {
+                    mesh.MorphTargets = null;
+                }
             }
 
             // Apply materials
@@ -118,6 +128,40 @@ namespace Stride.Assets.Models
                     for (int vbIdx = 0; vbIdx < mesh.Draw.VertexBuffers.Length; vbIdx++)
                     {
                         mesh.Draw.VertexBuffers[vbIdx].TransformBuffer(ref transformationMatrix);
+                    }
+
+                    // Scale morph position delta vertex buffers (MORPHDELTA semantics)
+                    // Normal/tangent deltas are unit-length directions and should NOT be scaled
+                    if (mesh.MorphTargets != null)
+                    {
+                        for (int vbIdx = 0; vbIdx < mesh.Draw.VertexBuffers.Length; vbIdx++)
+                        {
+                            var decl = mesh.Draw.VertexBuffers[vbIdx].Declaration;
+                            foreach (var element in decl.VertexElements)
+                            {
+                                if (element.SemanticName.StartsWith("MORPHDELTA") && !element.SemanticName.StartsWith("MORPHNRMDELTA") && !element.SemanticName.StartsWith("MORPHTANDELTA"))
+                                {
+                                    // Morph position deltas are stored as R32G32B32A32_Float
+                                    var bufferData = mesh.Draw.VertexBuffers[vbIdx].Buffer.GetSerializationData().Content;
+                                    var stride = mesh.Draw.VertexBuffers[vbIdx].Stride;
+                                    var count = mesh.Draw.VertexBuffers[vbIdx].Count;
+                                    var offset = element.AlignedByteOffset;
+                                    for (int v = 0; v < count; v++)
+                                    {
+                                        var baseOffset = mesh.Draw.VertexBuffers[vbIdx].Offset + v * stride + offset;
+                                        // Scale XYZ components, leave W unchanged
+                                        for (int c = 0; c < 3; c++)
+                                        {
+                                            var floatOffset = baseOffset + c * 4;
+                                            var val = BitConverter.ToSingle(bufferData, floatOffset);
+                                            val *= ScaleImport;
+                                            var bytes = BitConverter.GetBytes(val);
+                                            System.Buffer.BlockCopy(bytes, 0, bufferData, floatOffset, 4);
+                                        }
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -206,6 +250,7 @@ namespace Stride.Assets.Models
                 foreach (var meshesPerDrawCall in meshesByNode.GroupBy(x => x,
                     new AnonymousEqualityComparer<Mesh>((x, y) =>
                     x.MaterialIndex == y.MaterialIndex // Same material
+                    && x.MorphTargets == null && y.MorphTargets == null // Don't merge morph target meshes
                     && ArrayExtensions.ArraysEqual(x.Skinning?.Bones, y.Skinning?.Bones) // Same bones
                     && CompareParameters(model, x, y) // Same parameters
                     && CompareShadowOptions(model, x, y), // Same shadow parameters
@@ -236,6 +281,7 @@ namespace Stride.Assets.Models
                             Draw = generatedMesh,
                             NodeIndex = baseMesh.NodeIndex,
                             Skinning = baseMesh.Skinning,
+                            MorphTargets = baseMesh.MorphTargets,
                         });
                     }
                 }
