@@ -205,3 +205,5 @@ Hierarchy:
                         Id: 7776fb24-4b1c-4c9b-8f32-5d42d5db7699
                     b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6: !MorphTargetSample.MorphTargetScript,MorphTargetSample.Game
                         Id: e4d3c2b1-a6f5-c8b7-d9e0-f1a2b3c4d5e6
+                    a1a2a3a4a5a6a7a8a9a0b1b2b3b4b5b6: !MorphTargetSample.GltfMorphTestScript,MorphTargetSample.Game
+                        Id: a4a3a2a1-a6a5-a8a7-a9a0-b1b2b3b4b5b6
