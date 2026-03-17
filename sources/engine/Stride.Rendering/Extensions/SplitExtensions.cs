@@ -30,6 +30,7 @@ namespace Stride.Extensions
                                 Name = mesh.Name,
                                 NodeIndex = mesh.NodeIndex,
                                 Skinning = mesh.Skinning,
+                                MorphTargets = mesh.MorphTargets,
                             };
                         finalList.Add(newMeshData);
                     }
