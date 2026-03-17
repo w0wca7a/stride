@@ -28,6 +28,17 @@ namespace Stride.Engine
     [ComponentCategory("Model")]
     public sealed class ModelComponent : ActivableEntityComponent, IModelInstance
     {
+        /// <summary>
+        /// Registers UpdateEngine resolvers so that animation paths like
+        /// MeshInfos[0].MorphWeights[0] can be resolved at runtime.
+        /// </summary>
+        [ModuleInitializer]
+        internal static void InitializeModule()
+        {
+            UpdateEngine.RegisterMemberResolver(new ListUpdateResolver<MeshInfo>());
+            UpdateEngine.RegisterMemberResolver(new ArrayUpdateResolver<float>());
+        }
+
         private readonly List<MeshInfo> meshInfos = new List<MeshInfo>();
         private Model model;
         private SkeletonUpdater skeleton;
@@ -36,6 +47,7 @@ namespace Stride.Engine
         /// <summary>
         /// Per-entity state of each individual mesh of a model.
         /// </summary>
+        [DataContract]
         public class MeshInfo
         {
             /// <summary>
@@ -128,7 +140,7 @@ namespace Stride.Engine
         /// </summary>
         [DataMemberIgnore, DataMemberUpdatable]
         [DataMember]
-        public IReadOnlyList<MeshInfo> MeshInfos => meshInfos;
+        public List<MeshInfo> MeshInfos => meshInfos;
 
         private void CheckSkeleton()
         {

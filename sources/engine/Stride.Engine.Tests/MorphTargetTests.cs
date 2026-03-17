@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Xunit;
+using Stride.Animations;
 using Stride.Core;
 using Stride.Core.Mathematics;
 using Stride.Games;
@@ -823,6 +824,84 @@ namespace Stride.Engine.Tests
                 mc.SetMorphWeight("Squash", 0.6f);
                 Assert.Equal(0.6f, mc.GetMorphWeight(0, "Squash"));
                 Assert.Equal(0f, mc.GetMorphWeight(1, "Squash")); // mesh 1 unaffected
+
+                game.Exit();
+            });
+            RunGameTest(game);
+        }
+
+        // =====================================================================
+        //  18. Animation-driven morph weight playback
+        // =====================================================================
+
+        /// <summary>
+        /// Validates that the animation system can drive MorphWeights via
+        /// the [ModelComponent.Key].MeshInfos[{meshIndex}].MorphWeights[{targetIndex}]
+        /// update path. This is the same path used by imported morph weight animations.
+        /// </summary>
+        [Fact]
+        public void TestAnimationDrivenMorphWeights()
+        {
+            var game = new MorphTargetTests();
+            game.Script.AddTask(async () =>
+            {
+                game.ScreenShotAutomationEnabled = false;
+
+                for (int f = 0; f < 10; f++)
+                    await game.Script.NextFrame();
+
+                // Create model with 2 morph targets
+                var model = CreateModelWithMorphTargets(game.Services, 2);
+                var entity = new Entity("AnimMorphCube") { new ModelComponent { Model = model } };
+                game.Scene.Entities.Add(entity);
+
+                await game.Script.NextFrame();
+
+                var mc = entity.Get<ModelComponent>();
+
+                // Verify initial weights are 0
+                Assert.Equal(0f, mc.GetMorphWeight(0, "Target_0"));
+                Assert.Equal(0f, mc.GetMorphWeight(0, "Target_1"));
+
+                // Build an animation clip that animates morph weights
+                // using the same path format that the asset pipeline produces
+                var clip = new AnimationClip();
+                clip.RepeatMode = AnimationRepeatMode.PlayOnce;
+
+                // Target_0: ramp from 0 to 1 over 1 second
+                var curve0 = new AnimationCurve<float>();
+                curve0.InterpolationType = AnimationCurveInterpolationType.Linear;
+                curve0.KeyFrames.Add(new KeyFrameData<float>(CompressedTimeSpan.Zero, 0f));
+                curve0.KeyFrames.Add(new KeyFrameData<float>(CompressedTimeSpan.FromSeconds(1.0), 1f));
+                clip.AddCurve("[ModelComponent.Key].MeshInfos[0].MorphWeights[0]", curve0);
+
+                // Target_1: ramp from 0 to 0.5 over 1 second
+                var curve1 = new AnimationCurve<float>();
+                curve1.InterpolationType = AnimationCurveInterpolationType.Linear;
+                curve1.KeyFrames.Add(new KeyFrameData<float>(CompressedTimeSpan.Zero, 0f));
+                curve1.KeyFrames.Add(new KeyFrameData<float>(CompressedTimeSpan.FromSeconds(1.0), 0.5f));
+                clip.AddCurve("[ModelComponent.Key].MeshInfos[0].MorphWeights[1]", curve1);
+
+                clip.Duration = TimeSpan.FromSeconds(1.0);
+
+                // Add animation component and play the clip
+                var animComponent = entity.GetOrCreate<AnimationComponent>();
+                animComponent.Animations.Add("MorphAnim", clip);
+                var playingAnim = animComponent.Play("MorphAnim");
+
+                // Advance frames to let the animation play
+                for (int f = 0; f < 60; f++)
+                    await game.Script.NextFrame();
+
+                // Animation should have driven the weights to their target values
+                var w0 = mc.MeshInfos[0].MorphWeights[0];
+                var w1 = mc.MeshInfos[0].MorphWeights[1];
+
+                // Target_0 should have reached 1.0, Target_1 should have reached 0.5
+                // (game time in tests may run faster than real-time)
+                Assert.True(w0 > 0.5f, $"Expected Target_0 weight > 0.5 after animation, got {w0}");
+                Assert.True(w1 > 0.2f, $"Expected Target_1 weight > 0.2 after animation, got {w1}");
+                Assert.True(w1 < w0, $"Expected Target_1 ({w1}) < Target_0 ({w0}) since curve1 peaks at 0.5");
 
                 game.Exit();
             });
