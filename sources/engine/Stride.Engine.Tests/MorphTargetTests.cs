@@ -550,7 +550,224 @@ namespace Stride.Engine.Tests
         }
 
         // =====================================================================
-        //  11. Multiple meshes with different morph target configurations
+        //  11. Multi-target weight independence
+        // =====================================================================
+
+        [Fact]
+        public void TestMultiTargetWeightIndependence()
+        {
+            var game = new MorphTargetTests();
+            game.Script.AddTask(async () =>
+            {
+                game.ScreenShotAutomationEnabled = false;
+                await game.Script.NextFrame();
+
+                // Create model with 8 morph targets (max shader count)
+                var model = CreateModelWithMorphTargets(game.Services, 8);
+                var entity = new Entity { new ModelComponent { Model = model } };
+                game.Scene.Entities.Add(entity);
+                await game.Script.NextFrame();
+
+                var mc = entity.Get<ModelComponent>();
+
+                // Set each target to a distinct weight
+                for (int i = 0; i < 8; i++)
+                    mc.SetMorphWeight(0, i, (i + 1) * 0.1f);
+
+                // Verify each target retains its independent weight
+                for (int i = 0; i < 8; i++)
+                    Assert.Equal((i + 1) * 0.1f, mc.GetMorphWeight(0, $"Target_{i}"), 5);
+
+                // Change one target, verify others unchanged
+                mc.SetMorphWeight(0, 3, 0.99f);
+                Assert.Equal(0.99f, mc.GetMorphWeight(0, "Target_3"));
+                Assert.Equal(0.1f, mc.GetMorphWeight(0, "Target_0"), 5);
+                Assert.Equal(0.5f, mc.GetMorphWeight(0, "Target_4"), 5);
+                Assert.Equal(0.8f, mc.GetMorphWeight(0, "Target_7"), 5);
+
+                game.Exit();
+            });
+            RunGameTest(game);
+        }
+
+        // =====================================================================
+        //  12. Multi-target rendering integration (automated, non-interactive)
+        // =====================================================================
+
+        [Fact]
+        public void TestMultiTargetRendering()
+        {
+            var game = new MorphTargetTests();
+            game.Script.AddTask(async () =>
+            {
+                game.ScreenShotAutomationEnabled = false;
+
+                // Wait for initial shader compilation and scene setup
+                for (int f = 0; f < 10; f++)
+                    await game.Script.NextFrame();
+
+                // Create model with 2 morph targets
+                var model = CreateModelWithMorphTargets(game.Services, 2);
+                var entity = new Entity("MultiMorphCube") { new ModelComponent { Model = model } };
+                entity.Transform.Position = new Vector3(3, 0, 0);
+                game.Scene.Entities.Add(entity);
+
+                // Let the render pipeline process the new entity
+                for (int f = 0; f < 5; f++)
+                    await game.Script.NextFrame();
+
+                var mc = entity.Get<ModelComponent>();
+
+                // Set target 0 weight
+                mc.SetMorphWeight(0, 0, 1.0f);
+                Assert.Equal(1.0f, mc.GetMorphWeight(0, "Target_0"));
+                Assert.Equal(0f, mc.GetMorphWeight(0, "Target_1"));
+
+                // Render a few frames with target 0 active
+                for (int f = 0; f < 5; f++)
+                    await game.Script.NextFrame();
+
+                // Set target 1 weight while target 0 is still active
+                mc.SetMorphWeight(0, 1, 0.5f);
+                Assert.Equal(1.0f, mc.GetMorphWeight(0, "Target_0"));
+                Assert.Equal(0.5f, mc.GetMorphWeight(0, "Target_1"));
+
+                // Render a few frames with both targets active
+                for (int f = 0; f < 5; f++)
+                    await game.Script.NextFrame();
+
+                // Reset both
+                mc.SetMorphWeight(0, 0, 0f);
+                mc.SetMorphWeight(0, 1, 0f);
+
+                for (int f = 0; f < 5; f++)
+                    await game.Script.NextFrame();
+
+                // No crash, no exception — pipeline handled multi-target correctly
+                game.Exit();
+            });
+            RunGameTest(game);
+        }
+
+        // =====================================================================
+        //  13. TransformationMorphTargetsKeys exist with correct types
+        // =====================================================================
+
+        [Fact]
+        public void TransformationMorphTargetsKeys_Exist()
+        {
+            // Verify the keys exist and have the expected names
+            Assert.NotNull(TransformationMorphTargetsKeys.MorphWeights);
+            Assert.NotNull(TransformationMorphTargetsKeys.MorphTargetActiveCount);
+            Assert.Contains("MorphWeights", TransformationMorphTargetsKeys.MorphWeights.Name);
+            Assert.Contains("MorphTargetActiveCount", TransformationMorphTargetsKeys.MorphTargetActiveCount.Name);
+        }
+
+        // =====================================================================
+        //  14. MorphTargetMaxCount permutation key default
+        // =====================================================================
+
+        [Fact]
+        public void MaterialKeys_MorphTargetMaxCount_Default()
+        {
+            // Default MorphTargetMaxCount should be 8
+            var parameters = new ParameterCollection();
+            Assert.Equal(8, parameters.Get(MaterialKeys.MorphTargetMaxCount));
+        }
+
+        // =====================================================================
+        //  15. Multi-target with normals and tangents rendering
+        // =====================================================================
+
+        [Fact]
+        public void TestMultiTargetWithNormalsAndTangents()
+        {
+            var game = new MorphTargetTests();
+            game.Script.AddTask(async () =>
+            {
+                game.ScreenShotAutomationEnabled = false;
+
+                for (int f = 0; f < 10; f++)
+                    await game.Script.NextFrame();
+
+                // Create model with 3 targets including normals and tangents
+                var model = CreateModelWithMorphTargets(game.Services, 3, withNormals: true, withTangents: true);
+                var entity = new Entity("FullMorphCube") { new ModelComponent { Model = model } };
+                game.Scene.Entities.Add(entity);
+
+                for (int f = 0; f < 5; f++)
+                    await game.Script.NextFrame();
+
+                var mc = entity.Get<ModelComponent>();
+                var mesh = model.Meshes[0];
+
+                // Verify all permutation keys are set
+                Assert.True(mesh.Parameters.Get(MaterialKeys.HasMorphTargets));
+                Assert.True(mesh.Parameters.Get(MaterialKeys.HasMorphTargetNormals));
+                Assert.True(mesh.Parameters.Get(MaterialKeys.HasMorphTargetTangents));
+
+                // Set all 3 targets to different weights
+                mc.SetMorphWeight(0, 0, 1.0f);
+                mc.SetMorphWeight(0, 1, 0.5f);
+                mc.SetMorphWeight(0, 2, 0.25f);
+
+                // Render several frames — verify no crash with all delta types active
+                for (int f = 0; f < 10; f++)
+                    await game.Script.NextFrame();
+
+                Assert.Equal(1.0f, mc.GetMorphWeight(0, "Target_0"));
+                Assert.Equal(0.5f, mc.GetMorphWeight(0, "Target_1"));
+                Assert.Equal(0.25f, mc.GetMorphWeight(0, "Target_2"));
+
+                game.Exit();
+            });
+            RunGameTest(game);
+        }
+
+        // =====================================================================
+        //  16. Exact max (8 targets) rendering stress test
+        // =====================================================================
+
+        [Fact]
+        public void TestMaxTargetCountRendering()
+        {
+            var game = new MorphTargetTests();
+            game.Script.AddTask(async () =>
+            {
+                game.ScreenShotAutomationEnabled = false;
+
+                for (int f = 0; f < 10; f++)
+                    await game.Script.NextFrame();
+
+                // Create model with exactly 8 morph targets (shader max)
+                var model = CreateModelWithMorphTargets(game.Services, 8);
+                var entity = new Entity("Max8MorphCube") { new ModelComponent { Model = model } };
+                game.Scene.Entities.Add(entity);
+
+                for (int f = 0; f < 5; f++)
+                    await game.Script.NextFrame();
+
+                var mc = entity.Get<ModelComponent>();
+
+                // Activate all 8 targets simultaneously
+                for (int i = 0; i < 8; i++)
+                    mc.SetMorphWeight(0, i, 1.0f);
+
+                // Render with all 8 active
+                for (int f = 0; f < 10; f++)
+                    await game.Script.NextFrame();
+
+                // Verify all weights survived rendering
+                for (int i = 0; i < 8; i++)
+                    Assert.Equal(1.0f, mc.GetMorphWeight(0, $"Target_{i}"));
+
+                game.Exit();
+            });
+            RunGameTest(game);
+        }
+
+        // =====================================================================
+        //  17. Multiple meshes with different morph target configurations
         // =====================================================================
 
         [Fact]
