@@ -1,0 +1,20 @@
+!Animation
+Id: fb6a4885-76cb-495b-ac4e-80d5f3165946
+SerializedVersion: {Stride: 2.0.0.0}
+Tags: []
+Source: !file ../../../Resources/Models/AnimatedMorphCube.glb
+AnimationStack: 0
+ClipDuration:
+    Enabled: false
+    StartAnimationTime: 0:00:00:00.0000000
+    EndAnimationTime: 0:00:30:00.0000000
+PivotPosition: {X: 0.0, Y: 0.0, Z: 0.0}
+RepeatMode: LoopInfinite
+Type: !StandardAnimationAssetType {}
+Skeleton: 8cf52fc7-0434-408c-9702-667796749a4c:Models/AnimatedMorphCube Skeleton
+RootMotion: false
+PreviewModel: d5a7dc9b-4ce5-4e00-beb9-3b341aca4f6d:Models/AnimatedMorphCube
+AnimationTimeMinimum: 0:00:00:00.0000000
+AnimationTimeMaximum: 0:00:00:04.1999900
+~SourceHashes:
+    f46d16beabf759cebef1be78b6788f43~../../../Resources/Models/AnimatedMorphCube.glb: 884f113b876bdb93c620a9a1f5ac20f0
