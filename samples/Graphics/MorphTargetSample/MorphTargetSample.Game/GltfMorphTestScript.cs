@@ -4,6 +4,7 @@ using Stride.Animations;
 using Stride.Core.Mathematics;
 using Stride.Engine;
 using Stride.Input;
+using Stride.Profiling;
 using Stride.Rendering;
 
 namespace MorphTargetSample
@@ -24,7 +25,9 @@ namespace MorphTargetSample
         private float[] weights;
         private AnimationComponent animComponent;
         private bool animPlaying;
+        private bool playingImported;
         private AnimationClip importedClip;
+        private DebugTextSystem debugText;
 
         public override void Start()
         {
@@ -60,6 +63,14 @@ namespace MorphTargetSample
             }
 
             Log.Info($"Morph cube ready ({targetCount} targets). A=animate, I=imported, 1/2=toggle, Space=reset.");
+
+            debugText = Services.GetService<DebugTextSystem>();
+            if (debugText == null)
+            {
+                debugText = new DebugTextSystem(Services);
+                Game.GameSystems.Add(debugText);
+            }
+            debugText.Visible = true;
 
             if (targetCount > 0)
                 StartAnimation();
@@ -111,6 +122,20 @@ namespace MorphTargetSample
                 for (int i = 0; i < weights.Length; i++)
                     mc.SetMorphWeight(0, i, weights[i]);
             }
+
+            // HUD overlay
+            if (debugText != null)
+            {
+                string mode = animPlaying
+                    ? (playingImported ? "Imported .sdanim (4.2s)" : "Programmatic (2s)")
+                    : "Manual";
+                var w0 = mc.MeshInfos?.Count > 0 ? mc.MeshInfos[0].MorphWeights : null;
+                string weightStr = w0 != null
+                    ? string.Join("  ", Enumerable.Range(0, w0.Length).Select(i => $"[{i}]={w0[i]:F2}"))
+                    : "none";
+                debugText.Print($"Mode: {mode}   Weights: {weightStr}", new Int2(10, 10));
+                debugText.Print("[A] Programmatic  [I] Imported  [1][2] Toggle  [Space] Reset", new Int2(10, 30));
+            }
         }
 
         private void StartAnimation()
@@ -145,6 +170,7 @@ namespace MorphTargetSample
             animComponent.Animations["MorphLoop"] = clip;
             animComponent.Play("MorphLoop");
             animPlaying = true;
+            playingImported = false;
         }
 
         private void PlayImportedAnimation()
@@ -153,6 +179,7 @@ namespace MorphTargetSample
             animComponent.Animations["ImportedMorph"] = importedClip;
             animComponent.Play("ImportedMorph");
             animPlaying = true;
+            playingImported = true;
             Log.Info("Playing imported .sdanim morph animation");
         }
 
