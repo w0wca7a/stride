@@ -92,6 +92,15 @@ namespace Stride.Assets.Models
         [DefaultValue(true)]
         public bool ImportMorphTargets { get; set; } = true;
 
+        /// <summary>
+        /// Gets the morph target names found in the source model file.
+        /// Populated at import time; read-only.
+        /// </summary>
+        [DataMember(38)]
+        [MemberCollection(ReadOnly = true)]
+        [Display(Browsable = false)]
+        public List<string> MorphTargetNames { get; } = new List<string>();
+
         [DataMember(45)]
         [DefaultValue(true)]
         [Display(Browsable = false)]

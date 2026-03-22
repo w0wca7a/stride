@@ -104,7 +104,8 @@ namespace Stride.Importer.ThreeD
                     Materials = ExtractMaterials(scene, materialNames),
                     Models = ExtractModels(scene, meshNames, materialNames, nodeNames),
                     Nodes = ExtractNodeHierarchy(scene, nodeNames),
-                    AnimationNodes = ExtractAnimations(scene, animationNames)
+                    AnimationNodes = ExtractAnimations(scene, animationNames),
+                    MorphTargetNames = ExtractMorphTargetNames(scene)
                 };
 
                 if (extractTextureDependencies)
@@ -1223,6 +1224,27 @@ namespace Stride.Importer.ThreeD
                 TotalClusterCount = totalClusterCount,
                 MorphTargets = morphTargets
             };
+        }
+
+        /// <summary>
+        /// Extracts morph target names from all meshes in the scene (lightweight, for import metadata).
+        /// </summary>
+        private unsafe List<string> ExtractMorphTargetNames(Scene* scene)
+        {
+            var names = new List<string>();
+            var seen = new HashSet<string>();
+            for (int m = 0; m < (int)scene->MNumMeshes; m++)
+            {
+                var mesh = scene->MMeshes[m];
+                for (int a = 0; a < (int)mesh->MNumAnimMeshes; a++)
+                {
+                    var animMesh = mesh->MAnimMeshes[a];
+                    var name = animMesh->MName.Length > 0 ? animMesh->MName.AsString : $"MorphTarget_{a}";
+                    if (seen.Add(name))
+                        names.Add(name);
+                }
+            }
+            return names;
         }
 
         /// <summary>
