@@ -24,6 +24,7 @@ namespace MorphTargetSample
         private float[] weights;
         private AnimationComponent animComponent;
         private bool animPlaying;
+        private AnimationClip importedClip;
 
         public override void Start()
         {
@@ -45,7 +46,20 @@ namespace MorphTargetSample
                 Log.Info($"MorphTargets: {targetCount} targets, normals={mesh.MorphTargets.HasNormals}, tangents={mesh.MorphTargets.HasTangents}");
             }
 
-            Log.Info($"Morph cube ready ({targetCount} targets). A=animate, 1/2=toggle, Space=reset.");
+            // Try loading the imported .sdanim (compiled from glTF)
+            try
+            {
+                importedClip = Content.Load<AnimationClip>("Models/AnimatedMorphCube_Square");
+                Log.Info($"Loaded imported clip: duration={importedClip.Duration}, repeat={importedClip.RepeatMode}");
+                foreach (var channel in importedClip.Channels)
+                    Log.Info($"  Channel: {channel.Value.PropertyName}");
+            }
+            catch (Exception ex)
+            {
+                Log.Warning($"Could not load imported animation: {ex.Message}");
+            }
+
+            Log.Info($"Morph cube ready ({targetCount} targets). A=animate, I=imported, 1/2=toggle, Space=reset.");
 
             if (targetCount > 0)
                 StartAnimation();
@@ -55,13 +69,20 @@ namespace MorphTargetSample
         {
             if (mc == null) return;
 
-            // A = toggle animation
+            // A = toggle programmatic animation
             if (Input.IsKeyPressed(Keys.A))
             {
                 if (animPlaying)
                     StopAnimation();
                 else
                     StartAnimation();
+            }
+
+            // I = play imported .sdanim clip
+            if (Input.IsKeyPressed(Keys.I) && importedClip != null)
+            {
+                if (animPlaying) StopAnimation();
+                PlayImportedAnimation();
             }
 
             // Manual weight control
@@ -124,6 +145,15 @@ namespace MorphTargetSample
             animComponent.Animations["MorphLoop"] = clip;
             animComponent.Play("MorphLoop");
             animPlaying = true;
+        }
+
+        private void PlayImportedAnimation()
+        {
+            animComponent = Entity.GetOrCreate<AnimationComponent>();
+            animComponent.Animations["ImportedMorph"] = importedClip;
+            animComponent.Play("ImportedMorph");
+            animPlaying = true;
+            Log.Info("Playing imported .sdanim morph animation");
         }
 
         private void StopAnimation()

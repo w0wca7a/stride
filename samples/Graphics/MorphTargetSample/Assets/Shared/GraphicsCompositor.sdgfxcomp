@@ -103,6 +103,7 @@ SharedRenderers:
             Enabled: false
             RequiredApis: {}
             Overlays: {}
+            RequestPassthrough: false
         SubsurfaceScatteringBlurEffect: null
         MSAALevel: None
         MSAAResolver: {}
@@ -126,6 +127,7 @@ SharedRenderers:
             Enabled: false
             RequiredApis: {}
             Overlays: {}
+            RequestPassthrough: false
         SubsurfaceScatteringBlurEffect: null
         MSAALevel: None
         MSAAResolver: {}
@@ -137,7 +139,7 @@ Game*: !Stride.Rendering.Compositing.SceneRendererCollection,Stride.Rendering
             Camera: ref!! b52cb3ea-3070-4405-af33-6d9d57a7e4e2
             Child: !Stride.Rendering.Compositing.RenderTextureSceneRenderer,Stride.Rendering
                 Id: cc5c9b5d-a888-455f-a4ca-a1bd7c909415
-                RenderTexture: 2355d4e2-1680-48ca-8ad6-34d291c1489d:RenderTexture
+                RenderTexture: null
                 Child: !Stride.Rendering.Compositing.ForwardRenderer,Stride.Engine ref!! d9252557-23fc-4917-8973-0bd4354053a6
             RenderMask: All
         cee6682ea104d5d6e73271576ca22678: !Stride.Rendering.Compositing.SceneCameraRenderer,Stride.Engine
