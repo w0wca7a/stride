@@ -41,8 +41,22 @@ namespace Stride.Assets.Presentation.NodePresenters.Updaters
                     node[nameof(ModelAsset.ScaleImport)].IsVisible = false;
                 }
 
-                // Add dependency to reevaluate if value changes
+                // Show morph target info when the source file has morph targets
+                var morphNames = ((ModelAsset)node.Value).MorphTargetNames;
+                var hasMorphTargets = morphNames?.Count > 0;
+                node[nameof(ModelAsset.ImportMorphTargets)].IsVisible = hasMorphTargets;
+
+                var morphNamesNode = node[nameof(ModelAsset.MorphTargetNames)];
+                morphNamesNode.IsVisible = hasMorphTargets;
+                if (hasMorphTargets)
+                {
+                    morphNamesNode.DisplayName = $"Morph Targets ({morphNames.Count})";
+                    morphNamesNode.AttachedProperties.Set(DisplayData.AutoExpandRuleKey, ExpandRule.Always);
+                }
+
+                // Add dependencies to reevaluate if values change
                 node.AddDependency(node[nameof(ModelAsset.Skeleton)], false);
+                node.AddDependency(node[nameof(ModelAsset.ImportMorphTargets)], false);
             }
         }
     }
