@@ -98,7 +98,6 @@ namespace Stride.Assets.Models
         /// </summary>
         [DataMember(38)]
         [MemberCollection(ReadOnly = true)]
-        [Display(Browsable = false)]
         public List<string> MorphTargetNames { get; } = new List<string>();
 
         [DataMember(45)]
