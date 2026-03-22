@@ -5,6 +5,9 @@ Tags: []
 Source: !file ../../../Resources/Models/AnimatedMorphCube.glb
 Skeleton: 8cf52fc7-0434-408c-9702-667796749a4c:Models/AnimatedMorphCube Skeleton
 PivotPosition: {X: 0.0, Y: 0.0, Z: 0.0}
+MorphTargetNames:
+    86ae29ce667048df7e66b9c2921fb7de: MorphTarget_0
+    1dc14e78a3f1ff9ab9c3ed1dbda279dc: MorphTarget_1
 Materials:
     bafe2d1d4b1c85b2b032d847b57c4008:
         Name: Material

@@ -7,9 +7,6 @@ Cameras:
     de2e75c3b2b23e54162686363f3f138e:
         Id: e68181f0-ebaf-457b-a0e2-b143569d8105
         Name: Main
-    099e664d4222f5f958e03f81432884ef*:
-        Id: b52cb3ea-3070-4405-af33-6d9d57a7e4e2
-        Name: Second
 RenderStages:
     47116750c1a5d449b4ad3625f71439b3:
         Id: 50671147-a5c1-49d4-b4ad-3625f71439b3
@@ -134,14 +131,6 @@ SharedRenderers:
 Game*: !Stride.Rendering.Compositing.SceneRendererCollection,Stride.Rendering
     Id: 76fe87cf-f574-4ad6-85b8-e9a9586be0e2
     Children:
-        0998c63a8edf6ac29bd1b282de30d373: !Stride.Rendering.Compositing.SceneCameraRenderer,Stride.Engine
-            Id: fb31026c-3588-46ac-be9c-39be5729adbe
-            Camera: ref!! b52cb3ea-3070-4405-af33-6d9d57a7e4e2
-            Child: !Stride.Rendering.Compositing.RenderTextureSceneRenderer,Stride.Rendering
-                Id: cc5c9b5d-a888-455f-a4ca-a1bd7c909415
-                RenderTexture: null
-                Child: !Stride.Rendering.Compositing.ForwardRenderer,Stride.Engine ref!! d9252557-23fc-4917-8973-0bd4354053a6
-            RenderMask: All
         cee6682ea104d5d6e73271576ca22678: !Stride.Rendering.Compositing.SceneCameraRenderer,Stride.Engine
             Id: 0f3e82cf-8863-4902-901b-e310a904d1ef
             Camera: ref!! e68181f0-ebaf-457b-a0e2-b143569d8105
