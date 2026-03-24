@@ -206,6 +206,9 @@ namespace Stride.Assets.Models
                 }
             }
 
+            if (entityInfo.MorphTargetNames?.Count > 0)
+                asset.MorphTargetNames.AddRange(entityInfo.MorphTargetNames);
+
             if (skeletonAsset != null)
                 asset.Skeleton = AttachedReferenceManager.CreateProxyObject<Skeleton>(skeletonAsset.Id, skeletonAsset.Location);
 

@@ -1,0 +1,10 @@
+!Skeleton
+Id: 8cf52fc7-0434-408c-9702-667796749a4c
+SerializedVersion: {Stride: 2.0.0.0}
+Tags: []
+Source: !file ../../../Resources/Models/AnimatedMorphCube.glb
+PivotPosition: {X: 0.0, Y: 0.0, Z: 0.0}
+Nodes:
+    d44cd6e153cea81cab63fb9bb71cbb10: {Name: AnimatedMorphCube, Depth: 0}
+~SourceHashes:
+    9ee05512c3335cd3bfa6be21125d9186~../../../Resources/Models/AnimatedMorphCube.glb: 884f113b876bdb93c620a9a1f5ac20f0

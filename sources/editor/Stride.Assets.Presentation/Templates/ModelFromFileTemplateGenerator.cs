@@ -28,6 +28,7 @@ namespace Stride.Assets.Presentation.Templates
         public static SettingsKey<bool> ImportTextures = new SettingsKey<bool>("Templates/ModelFromFile/ImportTextures", PackageUserSettings.SettingsContainer, true);
         public static SettingsKey<bool> ImportAnimations = new SettingsKey<bool>("Templates/ModelFromFile/ImportAnimations", PackageUserSettings.SettingsContainer, true);
         public static SettingsKey<bool> ImportSkeleton = new SettingsKey<bool>("Templates/ModelFromFile/ImportSkeleton", PackageUserSettings.SettingsContainer, true);
+        public static SettingsKey<bool> ImportMorphTargets = new SettingsKey<bool>("Templates/ModelFromFile/ImportMorphTargets", PackageUserSettings.SettingsContainer, true);
         public static SettingsKey<AssetId> DefaultSkeleton = new SettingsKey<AssetId>("Templates/ModelFromFile/DefaultSkeleton", PackageUserSettings.SettingsContainer, AssetId.Empty);
     }
 
@@ -42,6 +43,7 @@ namespace Stride.Assets.Presentation.Templates
         protected static readonly PropertyKey<bool> ImportTexturesKey = new PropertyKey<bool>("ImportTextures", typeof(ModelFromFileTemplateGenerator));
         protected static readonly PropertyKey<bool> ImportAnimationsKey = new PropertyKey<bool>("ImportAnimations", typeof(ModelFromFileTemplateGenerator));
         protected static readonly PropertyKey<bool> ImportSkeletonKey = new PropertyKey<bool>("ImportSkeleton", typeof(ModelFromFileTemplateGenerator));
+        protected static readonly PropertyKey<bool> ImportMorphTargetsKey = new PropertyKey<bool>("ImportMorphTargets", typeof(ModelFromFileTemplateGenerator));
         protected static readonly PropertyKey<Skeleton> SkeletonToUseKey = new PropertyKey<Skeleton>("SkeletonToUse", typeof(ModelFromFileTemplateGenerator));
 
         public override bool IsSupportingTemplate(TemplateDescription templateDescription)
@@ -72,7 +74,8 @@ namespace Stride.Assets.Presentation.Templates
                     DeduplicateMaterials = ModelFromFileTemplateSettings.DeduplicateMaterials.GetValue(profile, true),
                     ImportTextures = ModelFromFileTemplateSettings.ImportTextures.GetValue(profile, true),
                     ImportAnimations = ModelFromFileTemplateSettings.ImportAnimations.GetValue(profile, true),
-                    ImportSkeleton = ModelFromFileTemplateSettings.ImportSkeleton.GetValue(profile, true)
+                    ImportSkeleton = ModelFromFileTemplateSettings.ImportSkeleton.GetValue(profile, true),
+                    ImportMorphTargets = ModelFromFileTemplateSettings.ImportMorphTargets.GetValue(profile, true)
                 }
             };
 
@@ -96,6 +99,7 @@ namespace Stride.Assets.Presentation.Templates
             parameters.Tags.Set(ImportTexturesKey, window.Parameters.ImportTextures);
             parameters.Tags.Set(ImportAnimationsKey, window.Parameters.ImportAnimations);
             parameters.Tags.Set(ImportSkeletonKey, window.Parameters.ImportSkeleton);
+            parameters.Tags.Set(ImportMorphTargetsKey, window.Parameters.ImportMorphTargets);
             parameters.Tags.Set(SkeletonToUseKey, skeletonToReuse);
 
             // Save settings
@@ -104,6 +108,7 @@ namespace Stride.Assets.Presentation.Templates
             ModelFromFileTemplateSettings.ImportTextures.SetValue(window.Parameters.ImportTextures, profile);
             ModelFromFileTemplateSettings.ImportAnimations.SetValue(window.Parameters.ImportAnimations, profile);
             ModelFromFileTemplateSettings.ImportSkeleton.SetValue(window.Parameters.ImportSkeleton, profile);
+            ModelFromFileTemplateSettings.ImportMorphTargets.SetValue(window.Parameters.ImportMorphTargets, profile);
             skeletonId = AttachedReferenceManager.GetAttachedReference(skeletonToReuse)?.Id ?? AssetId.Empty;
             ModelFromFileTemplateSettings.DefaultSkeleton.SetValue(skeletonId, profile);
             parameters.Package.UserSettings.Save();
@@ -122,6 +127,7 @@ namespace Stride.Assets.Presentation.Templates
             var importTextures = parameters.Tags.Get(ImportTexturesKey);
             var importAnimations = parameters.Tags.Get(ImportAnimationsKey);
             var importSkeleton = parameters.Tags.Get(ImportSkeletonKey);
+            var importMorphTargets = parameters.Tags.Get(ImportMorphTargetsKey);
             var skeletonToReuse = parameters.Tags.Get(SkeletonToUseKey);
 
             var importParameters = new AssetImporterParameters { Logger = parameters.Logger };
@@ -152,6 +158,7 @@ namespace Stride.Assets.Presentation.Templates
                     {
                         model.Skeleton = skeletonToReuse;
                     }
+                    model.ImportMorphTargets = importMorphTargets;
                 }
 
                 // Create unique names amongst the list of assets

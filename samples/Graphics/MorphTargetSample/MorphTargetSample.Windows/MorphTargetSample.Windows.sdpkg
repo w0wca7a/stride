@@ -1,0 +1,20 @@
+!Package
+SerializedVersion: {Assets: 3.1.0.0}
+Meta:
+    Name: MorphTargetSample.Windows
+    Version: 1.0.0
+    Authors: []
+    Owners: []
+    Dependencies: null
+AssetFolders:
+    -   Path: !dir Assets
+ResourceFolders:
+    - !dir Resources
+OutputGroupDirectories: {}
+ExplicitFolders: []
+Bundles: []
+TemplateFolders: []
+RootAssets:
+    - 8d9eb7c2-f065-4ba2-9e1b-e8aa3c1fb6e6:Models/Material
+    - d5a7dc9b-4ce5-4e00-beb9-3b341aca4f6d:Models/AnimatedMorphCube
+    - fb6a4885-76cb-495b-ac4e-80d5f3165946:Models/AnimatedMorphCube_Square

@@ -89,6 +89,19 @@ namespace Stride.Rendering
                         context.Mixin(mixin, "NormalFromMesh");
                     }
                 }
+                if (context.GetParam(MaterialKeys.HasMorphTargets))
+                {
+                    mixin.AddMacro("MorphTargetMaxCount", context.GetParam(MaterialKeys.MorphTargetMaxCount));
+                    context.Mixin(mixin, "TransformationMorphTargets");
+                    if (context.GetParam(MaterialKeys.HasMorphTargetNormals))
+                    {
+                        context.Mixin(mixin, "NormalMeshMorphTargets");
+                    }
+                    if (context.GetParam(MaterialKeys.HasMorphTargetTangents))
+                    {
+                        context.Mixin(mixin, "TangentMeshMorphTargets");
+                    }
+                }
                 if (context.GetParam(MaterialKeys.HasSkinningPosition))
                 {
                     mixin.AddMacro("SkinningMaxBones", context.GetParam(MaterialKeys.SkinningMaxBones));

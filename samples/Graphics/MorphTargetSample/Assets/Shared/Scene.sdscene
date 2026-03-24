@@ -1,0 +1,107 @@
+!SceneAsset
+Id: 84efeed8-fdd2-4e9b-9cfb-d4ea3e5aa6aa
+SerializedVersion: {Stride: 3.1.0.1}
+Tags: []
+ChildrenIds: []
+Offset: {X: 0.0, Y: 0.0, Z: 0.0}
+Hierarchy:
+    RootParts:
+        - ref!! 883e544b-9579-48c0-b731-9b8de2d287e4
+        - ref!! aa9f45b3-a8f2-4b7c-8723-446504667459
+        - ref!! dbc67230-cb46-4563-8193-084016acd341
+        - ref!! 94061a3c-bbe5-4ad6-b55c-5905873264e1
+        - ref!! 8d5647c2-79b8-4d1e-a9ee-971356db7629
+    Parts:
+        -   Entity:
+                Id: 883e544b-9579-48c0-b731-9b8de2d287e4
+                Name: Ambient light
+                Components:
+                    f68bc6c843bad54c8fbd50fcb2cb3121: !TransformComponent
+                        Id: c8c68bf6-ba43-4cd5-8fbd-50fcb2cb3121
+                        Position: {X: 0.0, Y: 5.0, Z: 0.0}
+                        Rotation: {X: 0.0, Y: 0.0, Z: 0.0, W: 1.0}
+                        Scale: {X: 1.0, Y: 1.0, Z: 1.0}
+                        Children: {}
+                    4a5c5f942061e24f9986a5f77b5de9e9: !LightComponent
+                        Id: 945f5c4a-6120-4fe2-9986-a5f77b5de9e9
+                        Type: !LightAmbient
+                            Color: !ColorRgbProvider
+                                Value: {R: 1.0, G: 1.0, B: 1.0}
+                        Intensity: 0.3
+        -   Entity:
+                Id: 8d5647c2-79b8-4d1e-a9ee-971356db7629
+                Name: MorphCube
+                Components:
+                    af37eda7c027925463c336db47aab39b: !TransformComponent
+                        Id: 45080e18-6bff-4faf-99fb-1fddfbff652c
+                        Position: {X: 0.0, Y: 1.2, Z: 0.0}
+                        Rotation: {X: 0.12607862, Y: 0.25660482, Z: -0.033782665, W: 0.9576622}
+                        Scale: {X: 0.5, Y: 0.5, Z: 0.5}
+                        Children: {}
+                    12107335005c2ad5023703f7ecdcb3cc: !ModelComponent
+                        Id: 3e715dfa-733a-4555-8c30-8da5969779b2
+                        Model: d5a7dc9b-4ce5-4e00-beb9-3b341aca4f6d:Models/AnimatedMorphCube
+                        Materials: {}
+                    7f7c493c9a8fa98e675543e6419ab19e: !MorphTargetSample.GltfMorphTestScript,MorphTargetSample.Game
+                        Id: 943f9b94-8377-4916-a5bf-81b706d173ae
+        -   Entity:
+                Id: 94061a3c-bbe5-4ad6-b55c-5905873264e1
+                Name: Camera front
+                Components:
+                    ca0fdce30b37944f88d55b23fc487deb: !TransformComponent
+                        Id: e3dc0fca-370b-4f94-88d5-5b23fc487deb
+                        Position: {X: 0.0, Y: 1.5, Z: 4.0}
+                        Rotation: {X: 0.0, Y: 0.0, Z: 0.0, W: 1.0}
+                        Scale: {X: 1.0, Y: 1.0, Z: 1.0}
+                        Children: {}
+                    55e96e72598310448a7803690aca1931: !CameraComponent
+                        Id: 726ee955-8359-4410-8a78-03690aca1931
+                        Name: null
+                        Projection: Perspective
+                        AspectRatio: 0.56
+                        Slot: e68181f0-ebaf-457b-a0e2-b143569d8105
+        -   Entity:
+                Id: aa9f45b3-a8f2-4b7c-8723-446504667459
+                Name: Front light
+                Components:
+                    dc872dea8d54144cb67f9c278f089a32: !TransformComponent
+                        Id: ea2d87dc-548d-4c14-b67f-9c278f089a32
+                        Position: {X: 0.0, Y: 0.0, Z: 5.0}
+                        Rotation: {X: 0.26723838, Y: 0.0, Z: 0.0, W: 0.96363044}
+                        Scale: {X: 1.0, Y: 1.0, Z: 1.0}
+                        Children: {}
+                    c8ad616c4c51e0489a8b4f26f679ddf9: !LightComponent
+                        Id: 6c61adc8-514c-48e0-9a8b-4f26f679ddf9
+                        Type: !LightDirectional
+                            Color: !ColorRgbProvider
+                                Value: {R: 1.0, G: 1.0, B: 1.0}
+                            Shadow:
+                                Size: Large
+                                DepthRange: {}
+                                PartitionMode: !LightDirectionalShadowMap.PartitionLogarithmic {}
+                                ComputeTransmittance: false
+                                BiasParameters: {}
+                        Intensity: 0.6
+        -   Entity:
+                Id: dbc67230-cb46-4563-8193-084016acd341
+                Name: Back light
+                Components:
+                    cd6dd2efd029bb46bf0955c9bcb724c0: !TransformComponent
+                        Id: efd26dcd-29d0-46bb-bf09-55c9bcb724c0
+                        Position: {X: -9.128517E-08, Y: 2.6178288, Z: 1.1260438}
+                        Rotation: {X: -0.89188445, Y: 0.25855678, Z: 0.011648938, W: 0.37088385}
+                        Scale: {X: 1.0, Y: 1.0, Z: 1.0}
+                        Children: {}
+                    1f964e14bb965f45b983b29d708fe4ed: !LightComponent
+                        Id: 144e961f-96bb-455f-b983-b29d708fe4ed
+                        Type: !LightDirectional
+                            Color: !ColorRgbProvider
+                                Value: {R: 1.0, G: 1.0, B: 1.0}
+                            Shadow:
+                                Enabled: true
+                                Size: Large
+                                DepthRange: {}
+                                PartitionMode: !LightDirectionalShadowMap.PartitionLogarithmic {}
+                                ComputeTransmittance: false
+                                BiasParameters: {}
+                        Intensity: 0.6

@@ -82,6 +82,24 @@ namespace Stride.Assets.Models
         [Category]
         public List<ModelMaterial> Materials { get; } = new List<ModelMaterial>();
 
+        /// <summary>
+        /// Gets or sets whether to import morph targets (blend shapes) from the model file.
+        /// </summary>
+        /// <userdoc>
+        /// When checked, morph targets (blend shapes) are imported from the source model file.
+        /// </userdoc>
+        [DataMember(37)]
+        [DefaultValue(true)]
+        public bool ImportMorphTargets { get; set; } = true;
+
+        /// <summary>
+        /// Gets the morph target names found in the source model file.
+        /// Populated at import time; read-only.
+        /// </summary>
+        [DataMember(38)]
+        [MemberCollection(ReadOnly = true)]
+        public List<string> MorphTargetNames { get; } = new List<string>();
+
         [DataMember(45)]
         [DefaultValue(true)]
         [Display(Browsable = false)]
