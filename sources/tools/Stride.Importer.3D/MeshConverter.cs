@@ -52,12 +52,19 @@ namespace Stride.Importer.ThreeD
         private Matrix rootTransformInverse;
         private Model modelData;
 
+        private readonly GraphicsDevice graphicsDevice = null;
         private readonly List<ModelNodeDefinition> nodes = new();
         private readonly Dictionary<string, int> textureNameCount = new();
 
         public MeshConverter(Logger logger)
         {
             Logger = logger ?? GlobalLogger.GetLogger("Import Assimp");
+        }
+
+        public MeshConverter(Logger logger, GraphicsDevice graphicsDevice)
+        {
+            Logger = logger ?? GlobalLogger.GetLogger("Import Assimp");
+            this.graphicsDevice = graphicsDevice;
         }
 
         private void ResetConversionData()
@@ -240,7 +247,8 @@ namespace Stride.Importer.ThreeD
                 }
             }
 
-
+            modelData.Skeleton = new Rendering.Skeleton { Nodes = nodes.ToArray() };
+            
             return modelData;
         }
 
@@ -1066,9 +1074,24 @@ namespace Stride.Importer.ThreeD
             }
 
             // Build the mesh data
+            Graphics.Buffer vb, ib;
             var vertexDeclaration = new VertexDeclaration(vertexElements.ToArray());
-            var vertexBufferBinding = new VertexBufferBinding(GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, vertexBuffer)), vertexDeclaration, (int)mesh->MNumVertices, vertexDeclaration.VertexStride, 0);
-            var indexBufferBinding = new IndexBufferBinding(GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.IndexBuffer, indexBuffer)), is32BitIndex, (int)nbIndices, 0);
+
+            if (graphicsDevice == null)
+            {
+                vb = GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, vertexBuffer));
+                ib = GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.IndexBuffer, indexBuffer));                
+            }
+            // runtime mesh loading
+            else
+            {
+                vb = Graphics.Buffer.Vertex.New(graphicsDevice, vertexBuffer);
+                ib = Graphics.Buffer.Index.New(graphicsDevice, indexBuffer);
+            }
+            var vertexBufferBinding = new VertexBufferBinding(vb, vertexDeclaration, (int)mesh->MNumVertices, vertexDeclaration.VertexStride, 0);
+            var indexBufferBinding = new IndexBufferBinding(ib, is32BitIndex, nbIndices, 0);
+            //var vertexBufferBinding = new VertexBufferBinding(GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, vertexBuffer)), vertexDeclaration, (int)mesh->MNumVertices, vertexDeclaration.VertexStride, 0);
+            //var indexBufferBinding = new IndexBufferBinding(GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.IndexBuffer, indexBuffer)), is32BitIndex, (int)nbIndices, 0);
 
 
             drawData.VertexBuffers = new VertexBufferBinding[] { vertexBufferBinding };
