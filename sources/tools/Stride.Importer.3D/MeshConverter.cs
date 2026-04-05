@@ -173,7 +173,9 @@ namespace Stride.Importer.ThreeD
 
             postProcessFlags |= aiPostProcessSteps.aiProcess_CalcTangentSpace
                                | aiPostProcessSteps.aiProcess_Triangulate
-                               | aiPostProcessSteps.aiProcess_GenNormals
+                               | aiPostProcessSteps.aiProcess_GenNormals                                
+                               | aiPostProcessSteps.aiProcess_FindDegenerates       // + fighting black crosses in post-effect
+                               | aiPostProcessSteps.aiProcess_LimitBoneWeights      // + eliminate discrepancies between the number of nodes in import and rendering
                                | aiPostProcessSteps.aiProcess_SortByPType
                                | aiPostProcessSteps.aiProcess_FlipWindingOrder
                                | aiPostProcessSteps.aiProcess_FlipUVs
@@ -241,13 +243,68 @@ namespace Stride.Importer.ThreeD
 
                     if (meshInfo.HasSkinningNormal && meshInfo.TotalClusterCount > 0)
                         nodeMeshData.Parameters.Set(MaterialKeys.HasSkinningNormal, true);
-
+                    
+                    // Model needs a bounding box for rendering runtime imported models
+                    if (graphicsDevice != null && meshInfo.Draw.VertexBuffers?.Length > 0)
+                    {
+                        var vb = meshInfo.Draw.VertexBuffers[0];
+                        var serializedData = vb.Buffer.GetSerializationData();
+                        if (serializedData != null)
+                        {
+                            var bytes = serializedData.Content;
+                            var stride = vb.Declaration.VertexStride;
+                            var bmin = new Vector3(float.MaxValue);
+                            var bmax = new Vector3(float.MinValue);
+                            fixed (byte* ptr = bytes)
+                            {
+                                for (int vi = 0; vi < vb.Count; vi++)
+                                {
+                                    var pos = *(Vector3*)(ptr + vi * stride);
+                                    Vector3.Min(ref bmin, ref pos, out bmin);
+                                    Vector3.Max(ref bmax, ref pos, out bmax);
+                                }                               
+                            }
+                            nodeMeshData.BoundingBox = new BoundingBox(bmin, bmax);
+                            BoundingSphere.FromBox(ref nodeMeshData.BoundingBox, out nodeMeshData.BoundingSphere);
+                        }
+                    }
 
                     modelData.Meshes.Add(nodeMeshData);
                 }
             }
 
-            modelData.Skeleton = new Rendering.Skeleton { Nodes = nodes.ToArray() };
+            // Single BoundingBox for multimesh Model
+            if (graphicsDevice != null)
+            {
+                foreach (var mesh in modelData.Meshes)
+                {
+                    var draw = mesh.Draw;
+                    for (int i = 0; i < draw.VertexBuffers.Length; i++)
+                    {
+                        var vb = draw.VertexBuffers[i];
+                        var serializedData = vb.Buffer.GetSerializationData();
+                        if (serializedData == null) continue;
+                        draw.VertexBuffers[i] = new VertexBufferBinding(
+                            Graphics.Buffer.Vertex.New(graphicsDevice, serializedData.Content),
+                            vb.Declaration, vb.Count, vb.Offset);
+                    }
+                    if (draw.IndexBuffer.Buffer != null)
+                    {
+                        var serData = draw.IndexBuffer.Buffer.GetSerializationData();
+                        if (serData != null)
+                            draw.IndexBuffer = new IndexBufferBinding(
+                                Graphics.Buffer.Index.New(graphicsDevice, serData.Content),
+                                draw.IndexBuffer.Is32Bit, draw.IndexBuffer.Count, draw.IndexBuffer.Offset);
+                    }
+                }
+
+                var modelBox = BoundingBox.Empty;
+                foreach (var mesh in modelData.Meshes)
+                    BoundingBox.Merge(ref modelBox, ref mesh.BoundingBox, out modelBox);
+                modelData.BoundingBox = modelBox;
+            }
+
+            modelData.Skeleton = new Rendering.Skeleton { Nodes = [.. nodes] };
             
             return modelData;
         }
@@ -1075,14 +1132,14 @@ namespace Stride.Importer.ThreeD
 
             // Build the mesh data
             Graphics.Buffer vb, ib;
-            var vertexDeclaration = new VertexDeclaration(vertexElements.ToArray());
+            var vertexDeclaration = new VertexDeclaration([.. vertexElements]);    
 
             if (graphicsDevice == null)
             {
                 vb = GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, vertexBuffer));
                 ib = GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.IndexBuffer, indexBuffer));                
             }
-            // runtime mesh loading
+            // loading non-serializable meshes to the GPU
             else
             {
                 vb = Graphics.Buffer.Vertex.New(graphicsDevice, vertexBuffer);
@@ -1090,9 +1147,6 @@ namespace Stride.Importer.ThreeD
             }
             var vertexBufferBinding = new VertexBufferBinding(vb, vertexDeclaration, (int)mesh->MNumVertices, vertexDeclaration.VertexStride, 0);
             var indexBufferBinding = new IndexBufferBinding(ib, is32BitIndex, nbIndices, 0);
-            //var vertexBufferBinding = new VertexBufferBinding(GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, vertexBuffer)), vertexDeclaration, (int)mesh->MNumVertices, vertexDeclaration.VertexStride, 0);
-            //var indexBufferBinding = new IndexBufferBinding(GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.IndexBuffer, indexBuffer)), is32BitIndex, (int)nbIndices, 0);
-
 
             drawData.VertexBuffers = new VertexBufferBinding[] { vertexBufferBinding };
             drawData.IndexBuffer = indexBufferBinding;
