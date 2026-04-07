@@ -26,7 +26,7 @@ using Scene = Silk.NET.Assimp.Scene;
 
 namespace Stride.Importer.ThreeD
 {
-    public class MeshConverter
+    public partial class MeshConverter
     {
         static MeshConverter()
         {
@@ -157,7 +157,12 @@ namespace Stride.Importer.ThreeD
 
             return ProcessSkeleton(scene);
         }
-
+        
+        internal Model BuildRuntimeModel(string inputFilename, bool deduplicateMaterials)
+        {
+            return Convert(inputFilename, null, deduplicateMaterials);
+        }
+        
         private unsafe Scene* Initialize(string inputFilename, string outputFilename, uint importFlags, aiPostProcessSteps postProcessFlags)
         {
             ResetConversionData();
@@ -173,9 +178,8 @@ namespace Stride.Importer.ThreeD
 
             postProcessFlags |= aiPostProcessSteps.aiProcess_CalcTangentSpace
                                | aiPostProcessSteps.aiProcess_Triangulate
-                               | aiPostProcessSteps.aiProcess_GenNormals                                
-                               | aiPostProcessSteps.aiProcess_FindDegenerates       // + fighting black crosses in post-effect
-                               | aiPostProcessSteps.aiProcess_LimitBoneWeights      // + eliminate discrepancies between the number of nodes in import and rendering
+                               | aiPostProcessSteps.aiProcess_GenNormals
+                               | aiPostProcessSteps.aiProcess_LimitBoneWeights
                                | aiPostProcessSteps.aiProcess_SortByPType
                                | aiPostProcessSteps.aiProcess_FlipWindingOrder
                                | aiPostProcessSteps.aiProcess_FlipUVs
@@ -244,7 +248,7 @@ namespace Stride.Importer.ThreeD
                     if (meshInfo.HasSkinningNormal && meshInfo.TotalClusterCount > 0)
                         nodeMeshData.Parameters.Set(MaterialKeys.HasSkinningNormal, true);
                     
-                    // Model needs a bounding box for rendering runtime imported models
+                    // calculate bounding box for runtime imported meshes
                     if (graphicsDevice != null && meshInfo.Draw.VertexBuffers?.Length > 0)
                     {
                         var vb = meshInfo.Draw.VertexBuffers[0];
@@ -273,7 +277,6 @@ namespace Stride.Importer.ThreeD
                 }
             }
 
-            // Single BoundingBox for multimesh Model
             if (graphicsDevice != null)
             {
                 foreach (var mesh in modelData.Meshes)
@@ -298,13 +301,14 @@ namespace Stride.Importer.ThreeD
                     }
                 }
 
+                // single bounding box for multimesh Model
                 var modelBox = BoundingBox.Empty;
                 foreach (var mesh in modelData.Meshes)
                     BoundingBox.Merge(ref modelBox, ref mesh.BoundingBox, out modelBox);
                 modelData.BoundingBox = modelBox;
-            }
 
-            modelData.Skeleton = new Rendering.Skeleton { Nodes = [.. nodes] };
+                modelData.Skeleton = new Rendering.Skeleton { Nodes = [.. nodes] };
+            }
             
             return modelData;
         }
@@ -1139,7 +1143,7 @@ namespace Stride.Importer.ThreeD
                 vb = GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, vertexBuffer));
                 ib = GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.IndexBuffer, indexBuffer));                
             }
-            // loading non-serializable meshes to the GPU
+            // loading meshes to the GPU if Model loading from file to runtime without asset 
             else
             {
                 vb = Graphics.Buffer.Vertex.New(graphicsDevice, vertexBuffer);
