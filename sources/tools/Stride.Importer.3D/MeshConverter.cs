@@ -26,7 +26,7 @@ using Scene = Silk.NET.Assimp.Scene;
 
 namespace Stride.Importer.ThreeD
 {
-    public class MeshConverter
+    public partial class MeshConverter
     {
         static MeshConverter()
         {
@@ -52,12 +52,19 @@ namespace Stride.Importer.ThreeD
         private Matrix rootTransformInverse;
         private Model modelData;
 
+        private readonly GraphicsDevice graphicsDevice = null;
         private readonly List<ModelNodeDefinition> nodes = new();
         private readonly Dictionary<string, int> textureNameCount = new();
 
         public MeshConverter(Logger logger)
         {
             Logger = logger ?? GlobalLogger.GetLogger("Import Assimp");
+        }
+
+        public MeshConverter(Logger logger, GraphicsDevice graphicsDevice)
+        {
+            Logger = logger ?? GlobalLogger.GetLogger("Import Assimp");
+            this.graphicsDevice = graphicsDevice;
         }
 
         private void ResetConversionData()
@@ -150,7 +157,20 @@ namespace Stride.Importer.ThreeD
 
             return ProcessSkeleton(scene);
         }
-
+        
+        internal Model BuildRuntimeModel(string inputFilename, bool deduplicateMaterials)
+        {
+            var model = Convert(inputFilename, null, deduplicateMaterials);
+            // convert materials from sources to Stride
+            var materials = BuildRuntimeMaterials(inputFilename);
+            var count = materials.Count;
+            for (int i = 0; i < count; i++)
+            {
+                model.Materials.Add(materials[i]);
+            }
+            return model;
+        }
+        
         private unsafe Scene* Initialize(string inputFilename, string outputFilename, uint importFlags, aiPostProcessSteps postProcessFlags)
         {
             ResetConversionData();
@@ -167,6 +187,7 @@ namespace Stride.Importer.ThreeD
             postProcessFlags |= aiPostProcessSteps.aiProcess_CalcTangentSpace
                                | aiPostProcessSteps.aiProcess_Triangulate
                                | aiPostProcessSteps.aiProcess_GenNormals
+                               | aiPostProcessSteps.aiProcess_LimitBoneWeights
                                | aiPostProcessSteps.aiProcess_SortByPType
                                | aiPostProcessSteps.aiProcess_FlipWindingOrder
                                | aiPostProcessSteps.aiProcess_FlipUVs
@@ -234,13 +255,69 @@ namespace Stride.Importer.ThreeD
 
                     if (meshInfo.HasSkinningNormal && meshInfo.TotalClusterCount > 0)
                         nodeMeshData.Parameters.Set(MaterialKeys.HasSkinningNormal, true);
-
+                    
+                    // calculate bounding box for runtime imported meshes
+                    if (graphicsDevice != null && meshInfo.Draw.VertexBuffers?.Length > 0)
+                    {
+                        var vb = meshInfo.Draw.VertexBuffers[0];
+                        var serializedData = vb.Buffer.GetSerializationData();
+                        if (serializedData != null)
+                        {
+                            var bytes = serializedData.Content;
+                            var stride = vb.Declaration.VertexStride;
+                            var bmin = new Vector3(float.MaxValue);
+                            var bmax = new Vector3(float.MinValue);
+                            fixed (byte* ptr = bytes)
+                            {
+                                for (int vi = 0; vi < vb.Count; vi++)
+                                {
+                                    var pos = *(Vector3*)(ptr + vi * stride);
+                                    Vector3.Min(ref bmin, ref pos, out bmin);
+                                    Vector3.Max(ref bmax, ref pos, out bmax);
+                                }                               
+                            }
+                            nodeMeshData.BoundingBox = new BoundingBox(bmin, bmax);
+                            BoundingSphere.FromBox(ref nodeMeshData.BoundingBox, out nodeMeshData.BoundingSphere);
+                        }
+                    }
 
                     modelData.Meshes.Add(nodeMeshData);
                 }
             }
 
+            if (graphicsDevice != null)
+            {
+                foreach (var mesh in modelData.Meshes)
+                {
+                    var draw = mesh.Draw;
+                    for (int i = 0; i < draw.VertexBuffers.Length; i++)
+                    {
+                        var vb = draw.VertexBuffers[i];
+                        var serializedData = vb.Buffer.GetSerializationData();
+                        if (serializedData == null) continue;
+                        draw.VertexBuffers[i] = new VertexBufferBinding(
+                            Graphics.Buffer.Vertex.New(graphicsDevice, serializedData.Content),
+                            vb.Declaration, vb.Count, vb.Offset);
+                    }
+                    if (draw.IndexBuffer.Buffer != null)
+                    {
+                        var serData = draw.IndexBuffer.Buffer.GetSerializationData();
+                        if (serData != null)
+                            draw.IndexBuffer = new IndexBufferBinding(
+                                Graphics.Buffer.Index.New(graphicsDevice, serData.Content),
+                                draw.IndexBuffer.Is32Bit, draw.IndexBuffer.Count, draw.IndexBuffer.Offset);
+                    }
+                }
 
+                // single bounding box for multimesh Model
+                var modelBox = BoundingBox.Empty;
+                foreach (var mesh in modelData.Meshes)
+                    BoundingBox.Merge(ref modelBox, ref mesh.BoundingBox, out modelBox);
+                modelData.BoundingBox = modelBox;
+
+                modelData.Skeleton = new Rendering.Skeleton { Nodes = [.. nodes] };
+            }
+            
             return modelData;
         }
 
@@ -1066,10 +1143,22 @@ namespace Stride.Importer.ThreeD
             }
 
             // Build the mesh data
-            var vertexDeclaration = new VertexDeclaration(vertexElements.ToArray());
-            var vertexBufferBinding = new VertexBufferBinding(GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, vertexBuffer)), vertexDeclaration, (int)mesh->MNumVertices, vertexDeclaration.VertexStride, 0);
-            var indexBufferBinding = new IndexBufferBinding(GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.IndexBuffer, indexBuffer)), is32BitIndex, (int)nbIndices, 0);
+            Graphics.Buffer vb, ib;
+            var vertexDeclaration = new VertexDeclaration([.. vertexElements]);    
 
+            if (graphicsDevice == null)
+            {
+                vb = GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, vertexBuffer));
+                ib = GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.IndexBuffer, indexBuffer));                
+            }
+            // loading meshes to the GPU if Model loading from file to runtime without asset 
+            else
+            {
+                vb = Graphics.Buffer.Vertex.New(graphicsDevice, vertexBuffer);
+                ib = Graphics.Buffer.Index.New(graphicsDevice, indexBuffer);
+            }
+            var vertexBufferBinding = new VertexBufferBinding(vb, vertexDeclaration, (int)mesh->MNumVertices, vertexDeclaration.VertexStride, 0);
+            var indexBufferBinding = new IndexBufferBinding(ib, is32BitIndex, nbIndices, 0);
 
             drawData.VertexBuffers = new VertexBufferBinding[] { vertexBufferBinding };
             drawData.IndexBuffer = indexBufferBinding;
