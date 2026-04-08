@@ -15,15 +15,6 @@ public static class ModelBuilder
         var deduplicateMaterial = false;
         var log = GlobalLogger.GetLogger("Model builder");
         var meshConverter = new MeshConverter(log, graphicsDevice);
-        var model = meshConverter.BuildRuntimeModel(pathToModel, deduplicateMaterial);
-
-        // convert materials from sources to Stride
-        var materials = meshConverter.BuildRuntimeMaterials(pathToModel);
-        var count = materials.Count;
-        for (int i = 0; i < count; i++)
-        {
-            model.Materials.Add(materials[i]);
-        }
-        return model;
+        return meshConverter.BuildRuntimeModel(pathToModel, deduplicateMaterial);
     }
 }
