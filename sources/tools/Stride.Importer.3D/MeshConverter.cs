@@ -160,7 +160,15 @@ namespace Stride.Importer.ThreeD
         
         internal Model BuildRuntimeModel(string inputFilename, bool deduplicateMaterials)
         {
-            return Convert(inputFilename, null, deduplicateMaterials);
+            var model = Convert(inputFilename, null, deduplicateMaterials);
+            // convert materials from sources to Stride
+            var materials = BuildRuntimeMaterials(inputFilename);
+            var count = materials.Count;
+            for (int i = 0; i < count; i++)
+            {
+                model.Materials.Add(materials[i]);
+            }
+            return model;
         }
         
         private unsafe Scene* Initialize(string inputFilename, string outputFilename, uint importFlags, aiPostProcessSteps postProcessFlags)
