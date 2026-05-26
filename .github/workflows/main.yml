@@ -256,6 +256,21 @@ jobs:
     with:
       build-type: Debug
 
+  # iOS Simulator tests run on macOS runners and take ~24 min, so PRs only trigger them on
+  # strictly iOS-specific paths (ios-tests filter); master pushes still run them per-commit.
+  iOS-Tests-Game:
+    needs: [changes, Linux-Runtime]
+    if: |
+      always()
+      && github.event.pull_request.draft != true
+      && needs.changes.outputs.ios-tests == 'true'
+      && needs['Linux-Runtime'].result != 'failure'
+      && needs['Linux-Runtime'].result != 'cancelled'
+    uses: ./.github/workflows/test-ios-game.yml
+    secrets: inherit
+    with:
+      build-type: Debug
+
   # Android tests run on Linux + KVM-accelerated x86_64 emulator. Build APKs on the host,
   # boot the emulator inside reactivecircus/android-emulator-runner, run each suite serially.
   Android-Tests-Game:
