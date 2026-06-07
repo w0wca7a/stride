@@ -343,6 +343,14 @@
              Properties="TargetFramework=$(StrideFramework)" />
   </Target>
 
+  <!-- Strip test-SDK globals from the auto-attached CompilerApp ref (its own strip list
+       stays generic — it ships to end users). -->
+  <ItemGroup Condition="'$(StrideCompileAssets)' == 'true' And '$(StrideCompilerTargetsEnable)' != 'false'">
+    <ProjectReference Update="@(ProjectReference)" Condition="$([System.String]::Copy('%(Filename)').Equals('Stride.Core.Assets.CompilerApp'))">
+      <GlobalPropertiesToRemove>%(GlobalPropertiesToRemove);IncludeXunitLauncher;StrideTestPlatforms;StrideExplicitMacOSRuntime</GlobalPropertiesToRemove>
+    </ProjectReference>
+  </ItemGroup>
+
   <!-- Shader code generation support is inherited from Stride.Build.Sdk -->
 
   <!-- ================================================================ -->
