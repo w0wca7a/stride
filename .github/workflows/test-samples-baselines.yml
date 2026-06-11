@@ -23,7 +23,10 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          lfs: true
+          sparse-checkout: .github
+      - uses: ./.github/actions/stride-checkout
+        with:
+          exclude: deps/LLVM
           # Need full history for the auto-generated branch name to be stable.
           fetch-depth: 0
           fetch-tags: true  # tag-based versioning (engine version must dominate sample versions)
