@@ -261,7 +261,7 @@ jobs:
   iOS-Tests-Game:
     needs: [changes, Linux-Runtime]
     if: |
-      always()
+      !cancelled()
       && github.event.pull_request.draft != true
       && needs.changes.outputs.ios-tests == 'true'
       && needs['Linux-Runtime'].result != 'failure'
