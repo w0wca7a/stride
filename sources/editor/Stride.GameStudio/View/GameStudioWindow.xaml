@@ -118,6 +118,7 @@
         <MenuItem Header="{sd:Localize Open source file, Context=Menu}" Command="{Binding Session.OpenSourceFileCommand}" CommandParameter="{Binding SingleSelectedAsset}" Icon="{sd:Image {StaticResource ImageOpenSourceFile}}"/>
         <MenuItem Header="{sd:Localize Show in Explorer, Context=Menu}" Command="{Binding Session.ExploreCommand}" CommandParameter="{Binding SelectedContent}" Icon="{sd:Image {StaticResource ImageExplore}}"/>
         <MenuItem Header="{sd:Localize Show source file in Explorer, Context=Menu}" Command="{Binding Session.ExploreSourceFileCommand}" CommandParameter="{Binding SingleSelectedAsset}" Icon="{sd:Image {StaticResource ImageExplore}}"/>
+        <MenuItem Header="{sd:Localize Export asset..., Context=Menu}" Command="{Binding ExportAssetsCommand}"/>
       </ContextMenu>
 
     </ResourceDictionary>
