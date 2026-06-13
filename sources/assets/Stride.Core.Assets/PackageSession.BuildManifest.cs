@@ -414,4 +414,37 @@ partial class PackageSession
         }
         return result;
     }
+
+    /// <summary>
+    /// Picks, per declared asset assembly, the single build matching this asset compiler's runtime.
+    /// </summary>
+    /// <remarks>
+    /// A package may declare its asset assembly built for several host TFMs (net10.0, net10.0-windows*).
+    /// On Windows the -windows build is preferred, else the base (netX.0, no platform suffix); on other hosts
+    /// only the base loads. Untagged legacy entries load unconditionally. Entries are grouped by file name so
+    /// a package declaring multiple distinct assemblies resolves one host build per assembly.
+    /// </remarks>
+    private static List<AssetAssembly> SelectHostAssetAssemblies(List<AssetAssembly> declared)
+    {
+        var result = new List<AssetAssembly>();
+        var isWindows = OperatingSystem.IsWindows();
+        foreach (var group in declared.Where(a => a.Path is not null)
+                     .GroupBy(a => Path.GetFileName(a.Path!.ToOSPath()), StringComparer.OrdinalIgnoreCase))
+        {
+            AssetAssembly? best = null;
+            var bestRank = -1;
+            foreach (var a in group)
+            {
+                var tfm = a.TargetFramework;
+                int rank;
+                if (tfm is null || !tfm.Contains('-')) rank = 1;            // base host (netX.0), loads anywhere
+                else if (isWindows && tfm.Contains("-windows")) rank = 2;   // most-specific on Windows
+                else continue;                                             // incompatible with this host
+                if (rank > bestRank) { bestRank = rank; best = a; }
+            }
+            if (best is not null)
+                result.Add(best);
+        }
+        return result;
+    }
 }
