@@ -15,9 +15,6 @@ on:
       build-type:
         default: Debug
         type: string
-  repository_dispatch:
-    # Fired by chatops bot. Payload: { pr_number, dispatched_by }.
-    types: [build-android]
 
 concurrency:
   group: build-android-${{ github.event.pull_request.number || github.ref }}-${{ github.event.inputs.build-type || inputs.build-type || 'Debug' }}
