@@ -262,7 +262,7 @@ jobs:
     needs: [changes, Linux-Runtime]
     if: |
       !cancelled()
-      && github.event.pull_request.draft != true
+      && (github.event.pull_request.draft != true || contains(github.event.pull_request.labels.*.name, 'ci-run-on-draft'))
       && needs.changes.outputs.ios-tests == 'true'
       && needs['Linux-Runtime'].result != 'failure'
       && needs['Linux-Runtime'].result != 'cancelled'
