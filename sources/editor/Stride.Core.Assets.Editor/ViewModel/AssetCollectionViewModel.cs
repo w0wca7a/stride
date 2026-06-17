@@ -53,7 +53,7 @@ namespace Stride.Core.Assets.Editor.ViewModel
         ModificationDateThenName,
     }
 
-    public sealed class AssetCollectionViewModel : DispatcherViewModel, IAddChildViewModel
+    public sealed partial class AssetCollectionViewModel : DispatcherViewModel, IAddChildViewModel
     {
         public sealed class AssetFilterViewModel : DispatcherViewModel, IEquatable<AssetFilterViewModel>
         {
@@ -239,6 +239,7 @@ namespace Stride.Core.Assets.Editor.ViewModel
             filteredAssets.CollectionChanged += FilteredAssetsCollectionChanged;
             selectedContent.CollectionChanged += SelectedContentCollectionChanged;
             LoadAssetFilters();
+            InitializeExportCommand(serviceProvider);
             refreshing = false;
 
             DependentProperties.Add(nameof(DisplayAssetMode), new[] { nameof(DisplayLocationContentRecursively) });
