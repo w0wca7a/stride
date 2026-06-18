@@ -84,7 +84,6 @@ jobs:
       && ((github.event.pull_request.draft == true && !contains(github.event.pull_request.labels.*.name, 'ci-run-on-draft'))
           || needs.changes.outputs.android != 'true')
     uses: ./.github/workflows/test-android-game.yml
-    secrets: inherit
     with:
       build-type: Debug
 

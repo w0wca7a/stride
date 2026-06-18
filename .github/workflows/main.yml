@@ -267,7 +267,6 @@ jobs:
       && needs['Linux-Runtime'].result != 'failure'
       && needs['Linux-Runtime'].result != 'cancelled'
     uses: ./.github/workflows/test-ios-game.yml
-    secrets: inherit
     with:
       build-type: Debug
 
