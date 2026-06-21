@@ -129,6 +129,59 @@ partial class PackageSession
         return result;
     }
 
+    /// <summary>
+    /// Locates a dev-redirect package's build manifest: the newest <c>&lt;project&gt;.sdbuild</c> under the
+    /// project's <c>obj/</c>. The manifest's <c>ProjectAssets</c> list is platform-invariant, so any recent
+    /// one serves. Returns null when none exists (the project hasn't been built in manifest mode).
+    /// </summary>
+    private static string? FindDevRedirectManifest(string projectFile)
+    {
+        var projectDirectory = Path.GetDirectoryName(projectFile);
+        var objDirectory = projectDirectory != null ? Path.Combine(projectDirectory, "obj") : null;
+        if (objDirectory == null || !Directory.Exists(objDirectory))
+            return null;
+
+        var manifestName = Path.GetFileNameWithoutExtension(projectFile) + AssetBuildManifest.FileExtension;
+        return Directory.EnumerateFiles(objDirectory, manifestName, SearchOption.AllDirectories)
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
+    }
+
+    /// <summary>
+    /// Populates <see cref="Package.PrecomputedProjectAssets"/> from a build manifest so the dev-redirect
+    /// package's project assets (shaders) load from source with no MSBuild evaluation.
+    /// </summary>
+    private static void LoadProjectAssetsFromManifest(Package package, string projectFile, string manifestFile)
+    {
+        package.PrecomputedProjectAssets = [];
+
+        AssetBuildManifest manifest;
+        try
+        {
+            manifest = YamlSerializer.Load<AssetBuildManifest>(manifestFile);
+        }
+        catch
+        {
+            return;
+        }
+
+        var manifestDirectory = Path.GetDirectoryName(manifestFile)!;
+        var projectDirectory = new UDirectory(Path.GetDirectoryName(projectFile)!);
+        package.RootNamespace ??= manifest.RootNamespace;
+
+        var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var item in manifest.ProjectAssets)
+        {
+            if (item.Path is null)
+                continue;
+            var filePath = new UFile(Path.GetFullPath(Path.Combine(manifestDirectory, item.Path.ToOSPath())));
+            if (!seen.Add(filePath.FullPath))
+                continue;
+            var link = item.Link is not null ? UPath.Combine(projectDirectory, item.Link) : null;
+            package.PrecomputedProjectAssets.Add(new PackageLoadingAssetFile(filePath, projectDirectory) { Link = link });
+        }
+    }
+
     private async Task PreLoadPackageDependencies(ILogger log, SolutionProject project, PackageLoadParameters loadParameters)
     {
         ArgumentNullException.ThrowIfNull(log);
