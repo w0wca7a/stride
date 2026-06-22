@@ -346,7 +346,7 @@
   <!-- Strip test-SDK globals from the auto-attached CompilerApp ref (its own strip list
        stays generic — it ships to end users). -->
   <ItemGroup Condition="'$(StrideCompileAssets)' == 'true' And '$(StrideCompilerTargetsEnable)' != 'false'">
-    <ProjectReference Update="@(ProjectReference)" Condition="$([System.String]::Copy('%(Filename)').Equals('Stride.Core.Assets.CompilerApp'))">
+    <ProjectReference Update="@(ProjectReference)" Condition="$([System.String]::Copy('%(Filename)').Equals('Stride.AssetCompiler'))">
       <GlobalPropertiesToRemove>%(GlobalPropertiesToRemove);IncludeXunitLauncher;StrideTestPlatforms;StrideExplicitMacOSRuntime</GlobalPropertiesToRemove>
     </ProjectReference>
   </ItemGroup>
