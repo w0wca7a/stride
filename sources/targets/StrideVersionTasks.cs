@@ -321,10 +321,6 @@ public class StrideGitVersion : Task
     [Required] public string GeneratedVersionFile { get; set; }
     public string SuffixOverride { get; set; }
 
-    // Allow shipping the bare floor when no release tag is reachable (first release ever, or a deliberate offline
-    // package build). Off by default so a tagless CI/release run fails loudly instead of shipping a wrong version.
-    public bool AllowFloor { get; set; }
-
     [Output] public string NuGetVersion { get; set; }
 
     public override bool Execute()

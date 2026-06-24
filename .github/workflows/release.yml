@@ -176,15 +176,15 @@ jobs:
             exit 1
           fi
 
-      # Backstop: a stale/fallback version (e.g. tags not fetched) would re-use an already-released
-      # number. The version is max(reachable tags)+1, so its tag should not exist unless we're rebuilding
-      # the exact tagged commit. Fail a deploy that would re-publish a number tagged on another commit.
+      # Forget-to-bump guard: the version is the committed value in SharedAssemblyInfo.cs, bumped per release. If it
+      # wasn't bumped, its releases/<version> tag already exists on the previously-released commit, so fail the
+      # deploy. Re-running the release on the exact tagged commit (idempotent) is allowed (tag points at HEAD).
       - name: Guard against re-publishing an existing version
         if: ${{ inputs.deploy }}
         run: |
           TAG="releases/${{ steps.version.outputs.version }}"
           if git rev-parse "$TAG" >/dev/null 2>&1 && [ -z "$(git tag --points-at HEAD --list "$TAG")" ]; then
-            echo "::error::Version ${{ steps.version.outputs.version }} already exists as $TAG on a different commit (tags likely not fetched). Aborting deploy."
+            echo "::error::Version ${{ steps.version.outputs.version }} is already released (tag $TAG on another commit). Bump Patch/NuGetVersionSuffix in SharedAssemblyInfo.cs."
             exit 1
           fi
 
