@@ -48,7 +48,6 @@
         SourceVersionFile="$(StrideRoot)sources\shared\SharedAssemblyInfo.cs"
         GeneratedVersionFile="$(StrideRoot)sources\shared\SharedAssemblyInfo.Generated.cs">
       <Output TaskParameter="WorktreeSuffix" PropertyName="StrideWorktreeSuffix" />
-      <Output TaskParameter="Generated" PropertyName="_StrideWorktreeGenerated" />
     </ResolveStrideWorktreeVersion>
   </Target>
 
