@@ -60,31 +60,3 @@ foreach (var option in root.Options)
         helpOption.Action = new RevealHiddenHelpAction();
 
 return await root.Parse(args).InvokeAsync();
-
-// Run a located tool, forwarding arguments. When wait is true (Asset Compiler) the console is inherited
-// and the tool's exit code returned; otherwise (Game Studio) it is launched detached.
-static int RunTool(string? executable, string description, IReadOnlyList<string> forwardedArgs, bool wait)
-{
-    if (executable is null)
-    {
-        Console.Error.WriteLine($"Could not find {description}.");
-        return 1;
-    }
-
-    var startInfo = new ProcessStartInfo(executable) { UseShellExecute = false };
-    foreach (var argument in forwardedArgs)
-        startInfo.ArgumentList.Add(argument);
-
-    var process = Process.Start(startInfo);
-    if (process is null)
-    {
-        Console.Error.WriteLine($"Failed to start {executable}.");
-        return 1;
-    }
-
-    if (!wait)
-        return 0;
-
-    process.WaitForExit();
-    return process.ExitCode;
-}
