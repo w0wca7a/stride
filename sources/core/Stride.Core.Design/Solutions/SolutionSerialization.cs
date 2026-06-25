@@ -49,6 +49,20 @@ internal static class SolutionSerialization
         throw new SolutionFileException($"Solution filter '{filterFile}' does not reference a solution.");
     }
 
+    // The .sln a solution filter (.slnf) points at, resolved relative to the filter file.
+    private static string ResolveSolutionFilterTarget(string filterFile)
+    {
+        using var document = JsonDocument.Parse(File.ReadAllText(filterFile));
+        if (document.RootElement.TryGetProperty("solution", out var solution)
+            && solution.TryGetProperty("path", out var path)
+            && path.GetString() is { } relativePath)
+        {
+            return Path.GetFullPath(relativePath.Replace('\\', Path.DirectorySeparatorChar), Path.GetDirectoryName(filterFile)!);
+        }
+
+        throw new SolutionFileException($"Solution filter '{filterFile}' does not reference a solution.");
+    }
+
     public static Solution Read(string solutionFullPath, Stream stream)
     {
         var model = SolutionSerializers.SlnFileV12.OpenAsync(stream, CancellationToken.None).GetAwaiter().GetResult();
