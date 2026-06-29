@@ -57,7 +57,7 @@ internal static class SolutionSerialization
             && solution.TryGetProperty("path", out var path)
             && path.GetString() is { } relativePath)
         {
-            return Path.GetFullPath(relativePath.Replace('\\', Path.DirectorySeparatorChar), Path.GetDirectoryName(filterFile)!);
+            return Path.GetFullPath(Path.Combine(Path.GetDirectoryName(filterFile)!, relativePath.Replace('\\', Path.DirectorySeparatorChar)));
         }
 
         throw new SolutionFileException($"Solution filter '{filterFile}' does not reference a solution.");
