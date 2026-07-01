@@ -761,7 +761,7 @@ namespace Stride.Core.Assets.Editor.ViewModel
         bool IPropertyProviderViewModel.ShouldConstructMember(IMemberNode member) => member.Name switch
         {
             nameof(PackageSettingsWrapper.GraphicsApi) => packageSettingsWrapper.IsWindowsExecutable,
-            nameof(PackageSettingsWrapper.AssetAssembly) => packageSettingsWrapper.ProjectPath != null,
+            nameof(PackageSettingsWrapper.AssetAssembly) => packageSettingsWrapper.IsLibrary,
             _ => true,
         };
 
