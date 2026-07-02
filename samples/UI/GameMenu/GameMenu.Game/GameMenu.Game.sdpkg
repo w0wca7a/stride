@@ -13,4 +13,3 @@ ResourceFolders:
     - !dir ../Resources
 RootAssets:
     - 9294c606-6173-4215-a8dc-0d5043d68333:MainScene
-AssetAssemblies: []
