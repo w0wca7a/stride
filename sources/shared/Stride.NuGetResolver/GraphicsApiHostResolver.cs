@@ -111,6 +111,8 @@ public static class GraphicsApiHostResolver
             }
             return IntPtr.Zero;
         };
+
+        return api;
     }
 
     static string[] NativeCandidates(string apiDir, string libraryName)
