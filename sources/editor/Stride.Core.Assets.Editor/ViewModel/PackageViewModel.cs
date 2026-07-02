@@ -758,12 +758,7 @@ namespace Stride.Core.Assets.Editor.ViewModel
             return Session.AssetNodeContainer.GetOrCreateNode(packageSettingsWrapper);
         }
 
-        bool IPropertyProviderViewModel.ShouldConstructMember(IMemberNode member) => member.Name switch
-        {
-            nameof(PackageSettingsWrapper.GraphicsApi) => packageSettingsWrapper.IsWindowsExecutable,
-            nameof(PackageSettingsWrapper.AssetAssembly) => packageSettingsWrapper.IsLibrary,
-            _ => true,
-        };
+        bool IPropertyProviderViewModel.ShouldConstructMember(IMemberNode member) => true;
 
         bool IPropertyProviderViewModel.ShouldConstructItem(IObjectNode collection, NodeIndex index) => true;
 
