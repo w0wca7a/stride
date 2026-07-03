@@ -123,9 +123,6 @@ public class EditorScreenshotTests
         // Compare against baselines. Filter to this fixture so the same captureRoot can host
         // multiple fixtures' captures across test invocations.
         var baselineDir = Path.Combine(worktree, "tests", "editor", "baselines", Dpi);
-        // The script-editor capture ignores the script's literal text (template content can change)
-        // and only checks it renders as syntax-highlighted C# in the editor theme.
-        var prompt = fixtureName == "ScriptEditor" ? EditorComparisonPrompt.ScriptEditor : EditorComparisonPrompt.Default;
         var results = ScreenshotComparator.Compare(captureRoot, baselineDir,
             sampleFilter: fixtureName, defaultPrompt: prompt,
             deferWhenVisionUnavailable: true);
