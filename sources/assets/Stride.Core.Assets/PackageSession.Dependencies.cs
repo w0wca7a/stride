@@ -162,7 +162,7 @@ partial class PackageSession
         }
         catch
         {
-            return;
+            return null;
         }
 
         var manifestDirectory = Path.GetDirectoryName(manifestFile)!;
@@ -180,6 +180,7 @@ partial class PackageSession
             var link = item.Link is not null ? UPath.Combine(projectDirectory, item.Link) : null;
             package.PrecomputedProjectAssets.Add(new PackageLoadingAssetFile(filePath, projectDirectory) { Link = link });
         }
+        return manifest;
     }
 
     /// <summary>

@@ -177,6 +177,13 @@ public sealed partial class Package : IFileSynchronizable, IAssetFinder
     [DataMember(105)]
     public List<AssetAssembly> AssetAssemblies { get; } = [];
 
+    /// <summary>
+    /// Asset URL namespace declaration: null/"false" = bare URLs, "true" = the package name, any other value = that name.
+    /// </summary>
+    [DataMember(106)]
+    [DefaultValue(null)]
+    public string? AssetNamespace { get; set; }
+
     // Keep saved .sdpkg files minimal: skip empty collections (ShouldSerialize* is discovered by ObjectDescriptor).
     private bool ShouldSerializeAssetFolders() => AssetFolders.Count > 0;
     private bool ShouldSerializeResourceFolders() => ResourceFolders.Count > 0;
@@ -186,6 +193,7 @@ public sealed partial class Package : IFileSynchronizable, IAssetFinder
     private bool ShouldSerializeTemplateFolders() => TemplateFolders.Count > 0;
     private bool ShouldSerializeRootAssets() => RootAssets.Count > 0;
     private bool ShouldSerializeAssetAssemblies() => AssetAssemblies.Count > 0;
+    private bool ShouldSerializeAssetNamespace() => AssetNamespace is not null;
 
     /// <summary>
     /// Asset URL namespace: unset = the package name (the default), any other value = that custom
