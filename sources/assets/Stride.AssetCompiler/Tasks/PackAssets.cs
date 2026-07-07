@@ -17,7 +17,7 @@ namespace Stride.AssetCompiler.Tasks
 {
     public static class PackAssetsHelper
     {
-        public static bool Run(Core.Diagnostics.Logger logger, string projectFile, string intermediatePackagePath, List<(string SourcePath, string PackagePath)> generatedItems, IReadOnlyList<string> assetAssemblies = null, string assetNamespace = null)
+        public static bool Run(Core.Diagnostics.Logger logger, string projectFile, string intermediatePackagePath, List<(string SourcePath, string PackagePath)> generatedItems, IReadOnlyList<string> assetAssemblies = null, string assetNamespace = null, bool defaultAssetNamespace = false)
         {
             var package = Package.Load(logger, projectFile, new PackageLoadParameters()
             {
