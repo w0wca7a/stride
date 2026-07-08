@@ -228,6 +228,14 @@ namespace Stride.AssetCompiler
         /// </summary>
         private static string WriteContentAliases(ILogger logger, PackageSession projectSession, HashSet<Package> selfPackages, string outputDirectory)
         {
+            var selfPackages = new HashSet<Package> { rootPackage };
+            foreach (var sessionPackage in projectSession.Packages)
+            {
+                if (sessionPackage.Container is not StandalonePackage { IsDependencyPackage: true }
+                    && sessionPackage.Assets.Any(a => a.Asset is GameSettingsAsset))
+                    selfPackages.Add(sessionPackage);
+            }
+
             var aliases = new Dictionary<string, string>(StringComparer.Ordinal);
             var selfAliases = new HashSet<string>(StringComparer.Ordinal);
             var ambiguous = new HashSet<string>(StringComparer.Ordinal);
