@@ -17,7 +17,7 @@ namespace Stride.AssetCompiler.Tasks
 {
     public static class PackAssetsHelper
     {
-        public static bool Run(Core.Diagnostics.Logger logger, string projectFile, string intermediatePackagePath, List<(string SourcePath, string PackagePath)> generatedItems, IReadOnlyList<string> assetAssemblies = null, string assetNamespace = null, bool defaultAssetNamespace = false)
+        public static bool Run(Core.Diagnostics.Logger logger, string projectFile, string intermediatePackagePath, List<(string SourcePath, string PackagePath)> generatedItems, IReadOnlyList<string> assetAssemblies = null, string assetNamespace = null, bool defaultAssetNamespace = false, string assetNamespaceGlobalUsing = null)
         {
             var package = Package.Load(logger, projectFile, new PackageLoadParameters()
             {
@@ -228,6 +228,12 @@ namespace Stride.AssetCompiler.Tasks
             // never sentinels: the packed name is authoritative for consumers.
             var assetNamespaceDeclaration = !string.IsNullOrEmpty(assetNamespace) ? assetNamespace : package.AssetNamespace;
             newPackage.AssetNamespace = PackageContainer.ResolveAssetNamespace(assetNamespaceDeclaration, package.Meta.Name);
+
+            // Converted games default to global-using: their compiled code may hold bare URL strings.
+            var globalUsingDeclaration = !string.IsNullOrEmpty(assetNamespaceGlobalUsing) ? assetNamespaceGlobalUsing
+                : package.AssetNamespaceGlobalUsing ? "true" : null;
+            newPackage.AssetNamespaceGlobalUsing = newPackage.AssetNamespace is not null
+                && (globalUsingDeclaration is null ? hasGameSettings : string.Equals(globalUsingDeclaration, "true", StringComparison.OrdinalIgnoreCase));
 
             // Host-loadable asset assemblies, stored relative to the packed sdpkg (at stride/X.sdpkg).
             // Each path is lib/<tfm>/<name>.dll (built by the pack target); tag the entry with its TFM
