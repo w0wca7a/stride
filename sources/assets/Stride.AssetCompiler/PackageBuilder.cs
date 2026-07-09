@@ -235,7 +235,17 @@ namespace Stride.AssetCompiler
                     && sessionPackage.Assets.Any(a => a.Asset is GameSettingsAsset))
                     selfPackages.Add(sessionPackage);
             }
+            return selfPackages;
+        }
 
+        /// <summary>
+        /// Writes the bare-to-canonical URL alias table (data/db/aliases) implementing using
+        /// semantics: self namespaces are implicitly in scope, others enter via declared usings or
+        /// their own global-using declaration. Self wins bare-name collisions; colliding imports
+        /// get no alias.
+        /// </summary>
+        private static string WriteContentAliases(ILogger logger, PackageSession projectSession, HashSet<Package> selfPackages, string outputDirectory)
+        {
             var aliases = new Dictionary<string, string>(StringComparer.Ordinal);
             var selfAliases = new HashSet<string>(StringComparer.Ordinal);
             var ambiguous = new HashSet<string>(StringComparer.Ordinal);
