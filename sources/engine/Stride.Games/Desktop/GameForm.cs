@@ -84,6 +84,7 @@ namespace Stride.Games
         private bool isBackgroundFirstDraw;
         private bool isSizeChangedWithoutResizeBegin;
         private bool isSwitchingFullScreen;
+        private bool minimizedFromFullScreen;
 
         /// Initializes a new instance of the <see cref="GameForm"/> class.
         /// </summary>
@@ -160,6 +161,12 @@ namespace Stride.Games
 
         public event EventHandler<EventArgs> DisableFullScreen;
 
+        /// <summary>
+        /// Occurs when the form, previously minimized after losing the focus while in exclusive
+        /// fullscreen, is restored by the user: the window should re-enter fullscreen.
+        /// </summary>
+        public event EventHandler<EventArgs> EnableFullScreen;
+
         protected bool enableFullscreenToggle = true;
 
         /// <summary>
@@ -171,6 +178,21 @@ namespace Stride.Games
 
         [DesignerSerializationVisibility(DesignerSerializationVisibility.Hidden)]
         internal bool IsFullScreen { get; set; }
+
+        /// <summary>
+        /// Set by GameWindowWinforms around BeginScreenDeviceChange/EndScreenDeviceChange: the
+        /// transition hides the form and sends it to back, which raises a transient
+        /// WM_ACTIVATEAPP(false) that must not be interpreted as an alt-tab (it would cancel
+        /// the fullscreen switch mid-flight and leave a small orphan window behind).
+        /// </summary>
+        [System.ComponentModel.Browsable(false)]
+        [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+        internal bool IsSwitchingFullScreen
+        {
+            get => isSwitchingFullScreen;
+            set => isSwitchingFullScreen = value;
+        }
+
 
         internal delegate void TouchFingerDelegate(POINTER_TOUCH_INFO e);
         internal event TouchFingerDelegate FingerMoveActions;
@@ -310,6 +332,35 @@ namespace Stride.Games
             DisableFullScreen?.Invoke(this, e);
         }
 
+        /// <summary>
+        /// If the form was minimized after losing the focus in exclusive fullscreen, restores it
+        /// and asks to re-enter fullscreen — deferred by one message-loop pass, and only if the
+        /// foreground really belongs to this process (fullscreen transitions raise transient
+        /// activation messages that must not trigger a re-entry).
+        /// </summary>
+        private void TryRestoreFullScreen()
+        {
+            if (!minimizedFromFullScreen || IsDisposed)
+                return;
+
+            BeginInvoke(() =>
+            {
+                if (!minimizedFromFullScreen || IsDisposed || isSwitchingFullScreen)
+                    return;
+
+                Win32Native.GetWindowThreadProcessId(Win32Native.GetForegroundWindow(), out var foregroundProcessId);
+                if (foregroundProcessId != (uint) Environment.ProcessId)
+                    return;
+
+                minimizedFromFullScreen = false;
+
+                if (WindowState == FormWindowState.Minimized)
+                    WindowState = FormWindowState.Normal;
+
+                EnableFullScreen?.Invoke(this, EventArgs.Empty);
+            });
+        }
+
         protected override void OnClientSizeChanged(EventArgs e)
         {
             base.OnClientSizeChanged(e);
@@ -364,7 +415,15 @@ namespace Stride.Games
                         else if (wparam == SIZE_RESTORED)
                         {
                             if (previousWindowState == FormWindowState.Minimized)
+                            {
                                 OnResumeRendering(EventArgs.Empty);
+
+                                // Transient activation churn during fullscreen transitions can
+                                // leave the application AND the window flagged as active while
+                                // minimized: the restore then raises no activation message at
+                                // all. The restore itself is the only signal always present.
+                                TryRestoreFullScreen();
+                            }
 
                             if (!isUserResizing && (Size != cachedSize || previousWindowState == FormWindowState.Maximized))
                             {
@@ -385,6 +444,7 @@ namespace Stride.Games
                     if (wparam != 0)
                     {
                         OnAppActivated(EventArgs.Empty);
+                        TryRestoreFullScreen();
                     }
                     else
                     {
@@ -393,7 +453,28 @@ namespace Stride.Games
                         //also remove full screen if this is the case
                         if (IsFullScreen && !isSwitchingFullScreen) //exit full screen on alt-tab if in fullscreen
                         {
-                            OnDisableFullScreen(new EventArgs());
+                            // Display-mode switches and driver overlays raise transient
+                            // WM_ACTIVATEAPP(false)/(true) pairs a few milliseconds apart shortly
+                            // after entering fullscreen. Defer the decision by one message-loop
+                            // pass and only leave fullscreen if the deactivation persisted
+                            // (i.e. the foreground really belongs to another application).
+                            BeginInvoke(() =>
+                            {
+                                if (IsDisposed || !IsFullScreen || isSwitchingFullScreen)
+                                    return;
+
+                                Win32Native.GetWindowThreadProcessId(Win32Native.GetForegroundWindow(), out var foregroundProcessId);
+                                if (foregroundProcessId == (uint) Environment.ProcessId)
+                                    return;
+
+                                OnDisableFullScreen(new EventArgs());
+
+                                // Classic exclusive-fullscreen behavior: minimize to the task bar
+                                // when another application takes the focus; restoring the window
+                                // re-enters fullscreen (see TryRestoreFullScreen).
+                                minimizedFromFullScreen = true;
+                                WindowState = FormWindowState.Minimized;
+                            });
                         }
                     }
                     break;

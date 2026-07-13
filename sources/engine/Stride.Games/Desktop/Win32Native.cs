@@ -98,6 +98,12 @@ namespace Stride.Games
         [DllImport("user32.dll", EntryPoint = "GetFocus", CharSet = CharSet.Unicode)]
         public static extern IntPtr GetFocus();
 
+        [DllImport("user32.dll", EntryPoint = "GetForegroundWindow")]
+        public static extern IntPtr GetForegroundWindow();
+
+        [DllImport("user32.dll", EntryPoint = "GetWindowThreadProcessId")]
+        public static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
         [DllImport("user32.dll", EntryPoint = "GetWindowLong", CharSet = CharSet.Unicode)]
         private static extern IntPtr GetWindowLong32(IntPtr hwnd, WindowLongType index);
 

@@ -965,7 +965,8 @@ namespace Stride.Games
             if (hasWindowFullscreenChanged)
             {
                 hasWindowFullscreenChanged = false;
-                needApplyChanges |= ProcessOrientationChanged();
+                ProcessFullscreenChanged(game.Window);
+                needApplyChanges = true;
             }
 
             if (needApplyChanges)
@@ -1218,10 +1219,17 @@ namespace Stride.Games
                                 GraphicsDevice.Presenter.Description.PreferredFullScreenOutputIndex = newOutputIndex;
                                 GraphicsDevice.Presenter.Description.RefreshRate = graphicsDeviceInformation.PresentationParameters.RefreshRate;
 
+                                // DXGI requires leaving fullscreen (SetFullscreenState) BEFORE resizing the
+                                // buffers, and entering it AFTER — presenting a swapchain whose buffers were
+                                // not resized around the transition fails with DXGI_ERROR_INVALID_CALL.
+                                var willBeFullScreen = graphicsDeviceInformation.PresentationParameters.IsFullScreen;
+                                if (!willBeFullScreen)
+                                    GraphicsDevice.Presenter.IsFullScreen = false;
+
                                 GraphicsDevice.Presenter.Resize(newWidth, newHeight, newFormat);
 
-                                // Change full screen if needed
-                                GraphicsDevice.Presenter.IsFullScreen = graphicsDeviceInformation.PresentationParameters.IsFullScreen;
+                                if (willBeFullScreen)
+                                    GraphicsDevice.Presenter.IsFullScreen = true;
 
                                 needToCreateNewDevice = false;
                             }

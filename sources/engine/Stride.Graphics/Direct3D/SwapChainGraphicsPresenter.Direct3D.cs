@@ -294,8 +294,12 @@ namespace Stride.Graphics
                 currentOutput.Release();
 
             // Check if the current fullscreen monitor is the same as the new one.
-            // If not fullscreen, currentOutput will be null but output won't be, so don't compare them
-            if (isCurrentlyFullscreen == isFullScreen &&
+            // If not fullscreen, currentOutput will be null but output won't be, so don't compare them.
+            // Also compare against Description: when DXGI revokes fullscreen ownership itself (alt-tab
+            // away from exclusive fullscreen), the actual state is already windowed but the transition
+            // work (Description sync + ResizeBuffers) still has to be done — early-outing here would
+            // leave the swapchain in a state where every subsequent Present fails with INVALID_CALL.
+            if (isCurrentlyFullscreen == isFullScreen && Description.IsFullScreen == isFullScreen &&
                 (isCurrentlyFullscreen is false || (output is not null && currentOutput.IsNotNull() && currentOutput.Handle == output.NativeOutput.Handle)))
                 return;
 
@@ -326,7 +330,13 @@ namespace Stride.Graphics
                     result.Throw();
 
                 // Call 1) SwapChain.IsFullScreen 2) SwapChain.Resize
-                Resize(backBuffer.ViewWidth, backBuffer.ViewHeight, backBuffer.ViewFormat);
+                // Flip-model swapchains REQUIRE ResizeBuffers after any fullscreen<->windowed
+                // transition, even when the dimensions do not change — and the public Resize()
+                // early-outs on identical size, which would leave every subsequent Present
+                // failing with DXGI_ERROR_INVALID_CALL. Call ResizeBackBuffer directly.
+                GraphicsDevice.Begin();
+                ResizeBackBuffer(backBuffer.ViewWidth, backBuffer.ViewHeight, backBuffer.ViewFormat);
+                GraphicsDevice.End();
             }
 
             // If going to window mode:
@@ -374,6 +384,27 @@ namespace Stride.Graphics
 
             if (result.IsFailure)
             {
+                // Focus loss while in exclusive fullscreen (alt-tab, click on another monitor):
+                // DXGI revokes fullscreen ownership as soon as another window becomes foreground, so
+                // the Present racing that focus change fails with DXGI_ERROR_INVALID_CALL before any
+                // WM_ACTIVATEAPP handling could switch to windowed — and depending on timing DXGI may
+                // still report the fullscreen state as active. Finish the transition ourselves
+                // (release the fullscreen state and resize the buffers, as SetFullscreenState would)
+                // and drop the frame; the pending window events then complete the switch to windowed
+                // mode before the next Present.
+                if ((int) result == (int) DxgiConstants.DeviceRemoveReason.InvalidCall &&
+                    Description.IsFullScreen)
+                {
+                    Description.IsFullScreen = false;
+                    swapChain->SetFullscreenState(Fullscreen: 0, pTarget: null);
+                    // ResizeBackBuffer directly: the public Resize() early-outs on identical
+                    // dimensions, but flip model requires ResizeBuffers after the transition.
+                    GraphicsDevice.Begin();
+                    ResizeBackBuffer(backBuffer.ViewWidth, backBuffer.ViewHeight, backBuffer.ViewFormat);
+                    GraphicsDevice.End();
+                    return;
+                }
+
                 var deviceStatus = GraphicsDevice.GraphicsDeviceStatus;
 
                 var exception = Marshal.GetExceptionForHR(result);
