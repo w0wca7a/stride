@@ -4,6 +4,7 @@
 /// <summary>
 /// Performs morph target deformation on vertex positions.
 /// </summary>
+/*
 #ifndef MorphTargetMaxCount
 # define MorphTargetMaxCount 8
 #endif
@@ -41,5 +42,58 @@ shader TransformationMorphTargets : TransformationBase, PositionStream4
         if (count > 7) posDelta += streams.MorphPosDelta7.xyz * MorphWeights[7];
 
         streams.Position.xyz += posDelta;
+    }
+};
+*/
+/*
+    Плюсы: нет ограничения по input slots, до 64 таргетов, всё на GPU, легко расширяется.
+    Для реализации нужно:
+
+    В ExtractMorphTargets вместо vertex buffers создавать данные для текстур width=numVertices, height=numTargets
+    В компиляторе создавать Texture2D из этих данных и привязывать к мешу
+    Передавать MorphWeights[] через cbuffer обновляя его из ModelComponent.MeshInfos[i].MorphWeights
+*/
+
+shader TransformationMorphTargets : TransformationBase, PositionStream4, NormalStream
+{
+    // Текстура дельт: строка = таргет, столбец = вертекс
+    // R32G32B32A32_Float: XYZ = дельта позиции, W = не используется
+    Texture2D<float4> MorphTargetPositionDeltas;
+    Texture2D<float4> MorphTargetNormalDeltas;
+
+    cbuffer PerDraw
+    {
+        // Веса всех активных морф таргетов
+        // float4 упакован по 4 веса, максимум 64 таргета = 16 float4
+        stage float4 MorphWeights[16]; // 64 таргета
+        stage int MorphTargetCount;
+        stage int MorphVertexCount;    // количество вертексов в текстуре
+    }
+
+    override stage void PreTransformPosition()
+    {
+        base.PreTransformPosition();
+
+        float3 positionDelta = float3(0, 0, 0);
+        float3 normalDelta   = float3(0, 0, 0);
+
+        int vertexId = streams.VertexID; // SV_VertexID
+
+        for (int t = 0; t < MorphTargetCount; t++)
+        {
+            float weight = MorphWeights[t / 4][t % 4];
+            if (abs(weight) < 0.0001f) continue;
+
+            float4 posDelta = MorphTargetPositionDeltas.Load(
+                int3(vertexId, t, 0));
+            positionDelta += posDelta.xyz * weight;
+
+            float4 nrmDelta = MorphTargetNormalDeltas.Load(
+                int3(vertexId, t, 0));
+            normalDelta += nrmDelta.xyz * weight;
+        }
+
+        streams.PositionWS.xyz += positionDelta;
+        streams.normalWS       += normalDelta;
     }
 };

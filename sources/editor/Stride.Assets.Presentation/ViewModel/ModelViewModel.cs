@@ -78,6 +78,17 @@ namespace Stride.Assets.Presentation.ViewModel
                 // Use Restore to allow to set manually the id.
                 materialsNode.Restore(dictionary[assetToMerge.Materials[i].Name], new NodeIndex(i), id);
             }
+
+            // Update MorphTargetNames with Quantum (undoable)
+            var morphNamesNode = AssetRootNode[nameof(ModelAsset.MorphTargetNames)].Target;
+            while (Asset.MorphTargetNames.Count > 0)
+            {
+                morphNamesNode.Remove(Asset.MorphTargetNames[0], new NodeIndex(0));
+            }
+            for (var i = 0; i < assetToMerge.MorphTargetNames.Count; ++i)
+            {
+                morphNamesNode.Restore(assetToMerge.MorphTargetNames[i], new NodeIndex(i), ItemId.New());
+            }
         }
 
         private async void CreateSkeleton()
