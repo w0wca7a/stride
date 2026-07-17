@@ -22,8 +22,10 @@ namespace Stride.Rendering
             morphWeightsDataKey = RootRenderFeature.RenderData.CreateObjectKey<float[]>();
             morphInfoKey = RootRenderFeature.RenderData.CreateStaticObjectKey<bool>();
             renderEffectKey = ((RootEffectRenderFeature)RootRenderFeature).RenderEffectKey;
+            /*
             morphWeightsOffset = ((RootEffectRenderFeature)RootRenderFeature).CreateDrawCBufferOffsetSlot(TransformationMorphTargetsKeys.MorphWeights.Name);
             morphTargetActiveCountOffset = ((RootEffectRenderFeature)RootRenderFeature).CreateDrawCBufferOffsetSlot(TransformationMorphTargetsKeys.MorphTargetActiveCount.Name);
+            */
         }
 
         public override void PrepareEffectPermutations(RenderDrawContext context)
