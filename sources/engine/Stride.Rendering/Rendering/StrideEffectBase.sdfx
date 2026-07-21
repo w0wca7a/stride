@@ -101,6 +101,7 @@ namespace Stride.Rendering
             if (MaterialKeys.HasMorphTargetNormals)
             {
                 mixin NormalMeshMorphTargets;
+                mixin NormalMeshMorphTargetsTest;
             }
 
             if (MaterialKeys.HasMorphTargetTangents)
