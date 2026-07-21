@@ -4,8 +4,6 @@ using Stride.Core.Diagnostics;
 using Stride.Graphics;
 using Stride.Rendering.Materials;
 using Stride.Core.Storage;
-using Stride.Engine;
-using Stride.Rendering;
 using Stride.Core;
 
 namespace Stride.Rendering;
@@ -18,12 +16,9 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
         public bool Initialized;
     }
 
-    public bool EnableTest = false;
+    [DataMember] public bool EnableTest { get; set; } = true;
 
-    // Хранилище весов: извлекается в Extract, используется в Prepare
-    private ObjectPropertyKey<float> _morphWeightKey;
-
-    private readonly Dictionary<Mesh, MorphInfo> _infos = new();
+    private readonly Dictionary<Mesh, MorphInfo> _infos = [];
     private StaticObjectPropertyKey<RenderEffect> _renderEffectKey;
     private ConstantBufferOffsetReference _weightOffset;
     private ConstantBufferOffsetReference _vertexCountOffset;
@@ -31,24 +26,25 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
     private float _testWeight = 0f;
     private float _weightDirection = 1f;
 
+    private ObjectPropertyKey<float> _morphWeightKey;
+
     private Logger Logger => GlobalLogger.GetLogger(nameof(MorphTargetRenderFeatureTest));
 
     protected override void InitializeCore()
     {
-        // Создаём хранилище на объект — как в ObjectInfoRenderFeature
-        _morphWeightKey = RootRenderFeature.RenderData.CreateObjectKey<float>();
-
         _morphLogicalGroup = ((RootEffectRenderFeature)RootRenderFeature).CreateDrawLogicalGroup("MorphTargetsTest");
         _renderEffectKey = ((RootEffectRenderFeature)RootRenderFeature).RenderEffectKey;
         _weightOffset = ((RootEffectRenderFeature)RootRenderFeature)
             .CreateDrawCBufferOffsetSlot("TransformationMorphTargetsTest.MorphTestWeight");
         _vertexCountOffset = ((RootEffectRenderFeature)RootRenderFeature)
             .CreateDrawCBufferOffsetSlot("TransformationMorphTargetsTest.MorphTestVertexCount");
+
+        _morphWeightKey = RootRenderFeature.RenderData.CreateObjectKey<float>();
     }
 
     public override void Extract()
     {
-        var morphWeightHolder = RootRenderFeature.RenderData.GetData(_morphWeightKey);
+        var morphWeightData = RootRenderFeature.RenderData.GetData(_morphWeightKey);
 
         foreach (var objectNodeReference in RootRenderFeature.ObjectNodeReferences)
         {
@@ -58,27 +54,8 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
             if (mesh?.MorphTargets == null) continue;
             if (mesh.MorphTargets.VertexCount > 16384) continue;
 
-            // Устанавливаем флаг до PrepareEffectPermutations
-            mesh.Parameters.Set(MaterialKeys.HasMorphTargets, true);
-
-            float weight = 0f;
-            if (!EnableTest && renderMesh.Source is ModelComponent modelComponent)
-            {
-                for (int i = 0; i < modelComponent.Model.Meshes.Count; i++)
-                {
-                    if (modelComponent.Model.Meshes[i] == mesh)
-                    {
-                        // MorphWeights[0] — первый таргет; позже можно суммировать все
-                        var meshInfo = /* modelComponent.meshInfos[i] */ null; 
-                        // weight = meshInfo.MorphWeights?[0] ?? 0f;
-                        // Пока доступа к internal meshInfos нет — используем публичный API:
-                        weight = modelComponent.GetMorphWeight(i, 0);
-                        break;
-                    }
-                }
-            }
-
-            morphWeightHolder[objectNodeReference] = weight;
+            float weight = EnableTest ? _testWeight : mesh.Parameters.Get(MorphTargetKeys.Weight);
+            morphWeightData[objectNodeReference] = weight;
         }
     }
 
@@ -107,26 +84,14 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
                     continue;
 
                 renderEffect.EffectValidator.ValidateParameter(MaterialKeys.HasMorphTargets, hasMorphTargets);
-
-                //Logger.Info($"PrepareEffectPermutations: mesh='{mesh.Name}' HasMorphTargets={hasMorphTargets}");
             }
         }
     }
 
-/*
-    public override void Draw(RenderDrawContext context, RenderView renderView, RenderViewStage renderViewStage, int startIndex, int endIndex)
-    {
-        float dt = (float)context.RenderContext.Time.Elapsed.TotalSeconds;
-        _testWeight += dt * _weightDirection * 0.5f;
-
-        if (_testWeight >= 1f) { _testWeight = 1f; _weightDirection = -1f; }
-        else if (_testWeight <= 0f) { _testWeight = 0f; _weightDirection = 1f; }
-
-        Logger.Info($"Draw: TestWeight={_testWeight:F3}");
-    }
-*/
     public override unsafe void Prepare(RenderDrawContext context)
     {
+        var morphWeightData = RootRenderFeature.RenderData.GetData(_morphWeightKey);
+
         if (EnableTest)
         {
             float dt = (float)context.RenderContext.Time.Elapsed.TotalSeconds;
@@ -184,7 +149,8 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
             var renderMesh = (RenderMesh)renderNode.RenderObject;
             if (renderMesh.Mesh?.MorphTargets == null) continue;
             if (renderMesh.Mesh.MorphTargets.VertexCount > 16384) continue;
-            #region First
+           
+
             if (!_infos.TryGetValue(renderMesh.Mesh, out var info)) continue;
             var logicalGroup = perDrawLayout.GetLogicalGroup(_morphLogicalGroup);
             if (logicalGroup.Hash != ObjectId.Empty)
@@ -193,39 +159,13 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
                 Logger.Info($"Prepare: texture bound at slot {logicalGroup.DescriptorEntryStart}");
             }
             else Logger.Warning("Prepare: logical group MorphTargets not found");
-            #endregion
+
             var weightOff = perDrawLayout.GetConstantBufferOffset(_weightOffset);
             Logger.Info($"Prepare cbuffer: mesh='{renderMesh.Mesh.Name}' weightOff={weightOff}");
 
             if (weightOff != -1)
-/*
-                *((float*)((byte*)renderNode.Resources.ConstantBuffer.Data + weightOff)) = _testWeight;
-*/
-            {
-                float weight;
-
-                if (EnableTest)
-                {
-                    weight = _testWeight;
-                }
-                else
-                {
-                    weight = 0f;
-                    var modelComponent = renderMesh.Source as ModelComponent;
-                    if (modelComponent != null)
-                    {
-                        var meshes = modelComponent.Model?.Meshes;
-                        if (meshes != null)
-                        {
-                            int meshIndex = meshes.IndexOf(renderMesh.Mesh);
-                            if (meshIndex >= 0)
-                                weight = modelComponent.GetMorphWeight(meshIndex, 0);
-                        }
-                    }
-                }
-
-                *((float*)((byte*)renderNode.Resources.ConstantBuffer.Data + weightOff)) = weight;
-            }
+                *((float*)((byte*)renderNode.Resources.ConstantBuffer.Data + weightOff)) =
+                    EnableTest ? _testWeight : morphWeightData[renderNode.RenderObject.ObjectNode];
             var countOff = perDrawLayout.GetConstantBufferOffset(_vertexCountOffset);
             Logger.Info($"Prepare cbuffer: countOff={countOff}");
 
