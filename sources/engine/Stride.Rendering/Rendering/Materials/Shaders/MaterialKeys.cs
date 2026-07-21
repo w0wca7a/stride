@@ -132,8 +132,6 @@ namespace Stride.Rendering.Materials
 
         public static readonly PermutationParameterKey<bool> HasMorphTargetTangents = ParameterKeys.NewPermutation<bool>();
 
-        public static readonly PermutationParameterKey<int> MorphTargetMaxCount = ParameterKeys.NewPermutation<int>(8);
-
         public static readonly PermutationParameterKey<bool> UsePixelShaderWithDepthPass = ParameterKeys.NewPermutation<bool>();
         
         public static readonly PermutationParameterKey<bool> UseDitheredShadows = ParameterKeys.NewPermutation<bool>();

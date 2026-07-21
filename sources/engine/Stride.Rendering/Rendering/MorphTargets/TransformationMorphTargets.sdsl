@@ -4,96 +4,49 @@
 /// <summary>
 /// Performs morph target deformation on vertex positions.
 /// </summary>
-/*
-#ifndef MorphTargetMaxCount
-# define MorphTargetMaxCount 8
-#endif
-
 shader TransformationMorphTargets : TransformationBase, PositionStream4
 {
-    stage stream float4 MorphPosDelta0 : MORPHDELTA0;
-    stage stream float4 MorphPosDelta1 : MORPHDELTA1;
-    stage stream float4 MorphPosDelta2 : MORPHDELTA2;
-    stage stream float4 MorphPosDelta3 : MORPHDELTA3;
-    stage stream float4 MorphPosDelta4 : MORPHDELTA4;
-    stage stream float4 MorphPosDelta5 : MORPHDELTA5;
-    stage stream float4 MorphPosDelta6 : MORPHDELTA6;
-    stage stream float4 MorphPosDelta7 : MORPHDELTA7;
+    rgroup PerDraw.MorphTargets
+    {
+        Texture2DArray<float4> MorphTargetPositionDeltas;
+    }
 
     cbuffer PerDraw
     {
-        stage float MorphWeights[MorphTargetMaxCount];
-        stage int MorphTargetActiveCount;
+        //stage float4 MorphWeights[16]; // 64 таргета (float4 × 16 = 64 float)
+        stage float MorphWeights[64]; // 64 таргета 
+        stage uint MorphTargetCount;
+        stage uint MorphVertexCount;
+        stage uint MorphSlicesPerTarget;
     }
 
     override stage void PreTransformPosition()
     {
         base.PreTransformPosition();
-        float3 posDelta = float3(0, 0, 0);
-        int count = min(MorphTargetActiveCount, MorphTargetMaxCount);
+        uint vertexId = streams.VertexID;
+        if (vertexId != 0) return; // двигаем ТОЛЬКО вершину 0
 
-        if (count > 0) posDelta += streams.MorphPosDelta0.xyz * MorphWeights[0];
-        if (count > 1) posDelta += streams.MorphPosDelta1.xyz * MorphWeights[1];
-        if (count > 2) posDelta += streams.MorphPosDelta2.xyz * MorphWeights[2];
-        if (count > 3) posDelta += streams.MorphPosDelta3.xyz * MorphWeights[3];
-        if (count > 4) posDelta += streams.MorphPosDelta4.xyz * MorphWeights[4];
-        if (count > 5) posDelta += streams.MorphPosDelta5.xyz * MorphWeights[5];
-        if (count > 6) posDelta += streams.MorphPosDelta6.xyz * MorphWeights[6];
-        if (count > 7) posDelta += streams.MorphPosDelta7.xyz * MorphWeights[7];
+        float4 delta = MorphTargetPositionDeltas.Load(int4(0, 0, 0, 0));
+        streams.PositionWS.xyz += delta.xyz * MorphWeights[0];
 
-        streams.Position.xyz += posDelta;
-    }
-};
-*/
-/*
-    Плюсы: нет ограничения по input slots, до 64 таргетов, всё на GPU, легко расширяется.
-    Для реализации нужно:
+        /*
+        uint vertexId = streams.VertexID;
+        if (vertexId >= MorphVertexCount) return;
 
-    В ExtractMorphTargets вместо vertex buffers создавать данные для текстур width=numVertices, height=numTargets
-    В компиляторе создавать Texture2D из этих данных и привязывать к мешу
-    Передавать MorphWeights[] через cbuffer обновляя его из ModelComponent.MeshInfos[i].MorphWeights
-*/
+        uint col = vertexId % 16384u;
+        float3 totalDelta = float3(0, 0, 0);
 
-shader TransformationMorphTargets : TransformationBase, PositionStream4, NormalStream
-{
-    // Текстура дельт: строка = таргет, столбец = вертекс
-    // R32G32B32A32_Float: XYZ = дельта позиции, W = не используется
-    Texture2D<float4> MorphTargetPositionDeltas;
-    Texture2D<float4> MorphTargetNormalDeltas;
-
-    cbuffer PerDraw
-    {
-        // Веса всех активных морф таргетов
-        // float4 упакован по 4 веса, максимум 64 таргета = 16 float4
-        stage float4 MorphWeights[16]; // 64 таргета
-        stage int MorphTargetCount;
-        stage int MorphVertexCount;    // количество вертексов в текстуре
-    }
-
-    override stage void PreTransformPosition()
-    {
-        base.PreTransformPosition();
-
-        float3 positionDelta = float3(0, 0, 0);
-        float3 normalDelta   = float3(0, 0, 0);
-
-        int vertexId = streams.VertexID; // SV_VertexID
-
-        for (int t = 0; t < MorphTargetCount; t++)
+        for (uint t = 0; t < MorphTargetCount; t++)
         {
-            float weight = MorphWeights[t / 4][t % 4];
+            float weight = MorphWeights[t];
             if (abs(weight) < 0.0001f) continue;
 
-            float4 posDelta = MorphTargetPositionDeltas.Load(
-                int3(vertexId, t, 0));
-            positionDelta += posDelta.xyz * weight;
-
-            float4 nrmDelta = MorphTargetNormalDeltas.Load(
-                int3(vertexId, t, 0));
-            normalDelta += nrmDelta.xyz * weight;
+            uint slice = t * MorphSlicesPerTarget + (vertexId / 16384u);
+            float4 delta = MorphTargetPositionDeltas.Load(int4(col, 0, slice, 0));
+            totalDelta += delta.xyz * weight;
         }
 
-        streams.PositionWS.xyz += positionDelta;
-        streams.normalWS       += normalDelta;
+        streams.PositionWS.xyz += totalDelta;
+        */
     }
 };

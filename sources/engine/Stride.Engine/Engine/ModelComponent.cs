@@ -28,6 +28,7 @@ namespace Stride.Engine
     [ComponentCategory("Model")]
     public sealed class ModelComponent : ActivableEntityComponent, IModelInstance
     {
+        /*
         /// <summary>
         /// Registers UpdateEngine resolvers so that animation paths like
         /// MeshInfos[0].MorphWeights[0] can be resolved at runtime.
@@ -38,7 +39,7 @@ namespace Stride.Engine
             UpdateEngine.RegisterMemberResolver(new ListUpdateResolver<MeshInfo>());
             UpdateEngine.RegisterMemberResolver(new ArrayUpdateResolver<float>());
         }
-
+        */
         private readonly List<MeshInfo> meshInfos = new List<MeshInfo>();
         private Model model;
         private SkeletonUpdater skeleton;
@@ -362,7 +363,7 @@ namespace Stride.Engine
                         // Initialize with default weights
                         for (int i = 0; i < mesh.MorphTargets.MorphTargets.Length; i++)
                         {
-                            meshData.MorphWeights[i] = mesh.MorphTargets.MorphTargets[i].DefaultWeight;
+                            meshData.MorphWeights[i] = mesh.MorphTargets.MorphTargets[i].Weight;
                         }
                     }
                 }

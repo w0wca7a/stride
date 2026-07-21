@@ -1264,11 +1264,169 @@ namespace Stride.Importer.ThreeD
         }
 
         /// <summary>
-        /// Extracts morph target (blend shape) data from Assimp AnimMeshes.
-        /// Computes position/normal/tangent deltas relative to the base mesh and
-        /// creates per-target vertex buffers (MORPHDELTA, MORPHNRMDELTA, MORPHTANDELTA).
-        /// The vertex buffers are appended to drawData.VertexBuffers.
+        /// Extracts morph target (blend shape) data from Assimp <c>AnimMesh</c> entries and
+        /// packs position/normal deltas into flat float arrays suitable for uploading to
+        /// <c>Texture2D&lt;float4&gt;</c> (width = numVertices, height = numTargets).
         /// </summary>
+        /// <param name="mesh">Source Assimp mesh that owns the AnimMesh array.</param>
+        /// <param name="baseVertexBinding">
+        ///     Already-built vertex binding for the base mesh – used only for its vertex count.
+        /// </param>
+        /// <param name="drawData">
+        ///     MeshDraw for the base mesh (not modified here; morph data travels separately).
+        /// </param>
+        /// <returns>
+        ///     A <see cref="MeshMorphTargetDefinition"/> whose texture data arrays are ready
+        ///     for <see cref="MeshMorphTargetCompiler"/> to upload, or <c>null</c> if the
+        ///     mesh has no anim-meshes.
+        /// </returns>
+        private unsafe MeshMorphTargetDefinition ExtractMorphTargets(
+            Silk.NET.Assimp.Mesh* mesh,
+            VertexBufferBinding baseVertexBinding,
+            MeshDraw drawData)
+        {
+            const int MaxMorphTargets = 64; //matches MorphWeights[16] (16×float4 = 64 weights)
+            const int MaxTextureWidth = 16384;
+            if (mesh->MNumAnimMeshes == 0)
+                return null;
+
+            int numVertices = (int)mesh->MNumVertices;
+            int numTargets = (int)mesh->MNumAnimMeshes;
+
+            if (numTargets > MaxMorphTargets)
+            {
+                Logger.Warning($"Mesh '{mesh->MName.AsString}' has {numTargets} morph targets " +
+                               $"but the shader supports a maximum of {MaxMorphTargets}. " +
+                               $"Only the first {MaxMorphTargets} will be imported.");
+                numTargets = MaxMorphTargets;
+            }
+
+            // ----------------------------------------------------------------
+            // Determine which channels are available across ALL anim-meshes.
+            // ----------------------------------------------------------------
+            bool hasNormals = false;
+            bool hasTangents = false;
+
+            for (int t = 0; t < numTargets; t++)
+            {
+                var animMesh = mesh->MAnimMeshes[t];
+                if (animMesh->MNormals != null) hasNormals = true;
+                if (animMesh->MTangents != null) hasTangents = true;
+            }
+
+            // ----------------------------------------------------------------
+            // Allocate flat arrays:
+            //   layout: [targetIndex * numVertices + vertexIndex] → float4 (XYZW)
+            // ----------------------------------------------------------------
+            // Each vertex maps to 4 floats (R32G32B32A32_Float).
+            // For experiment R16G16B16A16_Float 
+            int floatsPerTarget = numVertices * 4;
+
+            float[] positionData = new float[numTargets * floatsPerTarget];
+            //Core.Mathematics.Half[] positionData = new Core.Mathematics.Half[numTargets * floatsPerTarget];
+            float[] normalData = hasNormals ? new float[numTargets * floatsPerTarget] : null;
+            //Core.Mathematics.Half[] normalData = hasNormals ? new Core.Mathematics.Half[numTargets * floatsPerTarget] : null;
+
+            var descriptions = new MorphTargetDescription[numTargets];
+
+            // ----------------------------------------------------------------
+            // Fill the arrays.
+            // ----------------------------------------------------------------
+            for (int t = 0; t < numTargets; t++)
+            {
+                var animMesh = mesh->MAnimMeshes[t];
+
+                // Target metadata
+                descriptions[t] = new MorphTargetDescription
+                {
+                    Name = animMesh->MName.AsString,
+                    Weight = animMesh->MWeight  // Assimp stores a default/current weight
+                };
+
+                int rowOffset = t * floatsPerTarget; // start of this target's row in the flat array
+
+                for (int v = 0; v < numVertices; v++)
+                {
+                    int pixelOffset = rowOffset + v * 4; // XYZW for vertex v in target t
+
+                    // ---- Position delta ----
+                    // AnimMesh vertices are absolute positions; subtract the base mesh position.
+                    if (animMesh->MVertices != null)
+                    {
+                        Vector3 basePos = mesh->MVertices[v].ToStrideVector3();
+                        Vector3 morphPos = animMesh->MVertices[v].ToStrideVector3();
+
+                        // Apply the root transform to both, then compute delta in world space.
+                        Vector3.TransformCoordinate(ref basePos, ref rootTransform, out basePos);
+                        Vector3.TransformCoordinate(ref morphPos, ref rootTransform, out morphPos);
+
+                        Vector3 delta = morphPos - basePos;
+
+                        positionData[pixelOffset + 0] = delta.X;
+                        //positionData[pixelOffset + 0] = new Core.Mathematics.Half(delta.X);
+                        positionData[pixelOffset + 1] = delta.Y;
+                        //positionData[pixelOffset + 1] = new Core.Mathematics.Half(delta.Y);
+                        positionData[pixelOffset + 2] = delta.Z;
+                        //positionData[pixelOffset + 2] = new Core.Mathematics.Half(delta.Z);
+                        positionData[pixelOffset + 3] = 0f; // W unused
+                        //positionData[pixelOffset + 3] = (Core.Mathematics.Half)0; // W unused
+                    }
+
+                    // ---- Normal delta ----
+                    if (hasNormals && normalData != null)
+                    {
+                        if (animMesh->MNormals != null && mesh->MNormals != null)
+                        {
+                            Vector3 baseNrm = mesh->MNormals[v].ToStrideVector3();
+                            Vector3 morphNrm = animMesh->MNormals[v].ToStrideVector3();
+
+                            Vector3.TransformNormal(ref baseNrm, ref rootTransform, out baseNrm);
+                            Vector3.TransformNormal(ref morphNrm, ref rootTransform, out morphNrm);
+
+                            // Sanitise NaNs (mirrors the base-mesh normal handling)
+                            if (float.IsNaN(baseNrm.X) || float.IsNaN(baseNrm.Y) || float.IsNaN(baseNrm.Z))
+                                baseNrm = Vector3.UnitX;
+                            else
+                                baseNrm.Normalize();
+
+                            if (float.IsNaN(morphNrm.X) || float.IsNaN(morphNrm.Y) || float.IsNaN(morphNrm.Z))
+                                morphNrm = Vector3.UnitX;
+                            else
+                                morphNrm.Normalize();
+
+                            Vector3 delta = morphNrm - baseNrm;
+
+                            normalData[pixelOffset + 0] = delta.X;
+                            //normalData[pixelOffset + 0] = new Core.Mathematics.Half(delta.X);
+                            normalData[pixelOffset + 1] = delta.Y;
+                            //normalData[pixelOffset + 1] = new Core.Mathematics.Half(delta.Y);
+                            normalData[pixelOffset + 2] = delta.Z;
+                            //normalData[pixelOffset + 2] = new Core.Mathematics.Half(delta.Z);
+                            normalData[pixelOffset + 3] = 0f;
+                            //normalData[pixelOffset + 3] = (Core.Mathematics.Half)0;
+                        }
+                        // else: anim-mesh has no normals for this target → delta stays 0
+                    }
+                }
+            }
+
+            Logger.Info($"Extracted {numTargets} morph targets for mesh '{mesh->MName.AsString}' " +
+                        $"({numVertices} vertices, normals={hasNormals}).");
+
+            int slicesPerTarget = (numVertices + MaxTextureWidth - 1) / MaxTextureWidth;
+
+            return new MeshMorphTargetDefinition
+            {
+                MorphTargets = descriptions,
+                VertexCount = numVertices,
+                HasNormals = hasNormals,
+                HasTangents = hasTangents,
+                SlicesPerTarget = slicesPerTarget,
+                PositionDeltaData = positionData,
+                NormalDeltaData = normalData,
+            };
+        }
+        /*
         private unsafe MeshMorphTargetDefinition ExtractMorphTargets(Silk.NET.Assimp.Mesh* mesh, VertexBufferBinding baseVertexBufferBinding, MeshDraw drawData)
         {
             var numTargets = (int)mesh->MNumAnimMeshes;
@@ -1413,6 +1571,7 @@ namespace Stride.Importer.ThreeD
                 HasTangents = hasTangents
             };
         }
+        */
 
         /// <summary>
         /// Returns true if <paramref name="nodeIndex"/> on <see cref="nodes"/> corresponding to this <paramref name="bone"/> was found.

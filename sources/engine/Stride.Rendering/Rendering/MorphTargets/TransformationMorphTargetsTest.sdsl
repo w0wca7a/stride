@@ -1,0 +1,26 @@
+shader TransformationMorphTargetsTest : TransformationBase, PositionStream4, NormalStream
+{
+    rgroup PerDraw.MorphTargetsTest
+    {
+        Texture2D<float4> MorphTestPositionDeltas;
+    }
+
+    cbuffer PerDraw
+    {
+        stage float MorphTestWeight;
+        stage int MorphTestVertexCount;
+    }
+
+    override stage void PreTransformPosition()
+    {        
+        base.PreTransformPosition();
+
+        int vertexId = (int)streams.VertexID;
+
+        if (vertexId < MorphTestVertexCount)
+        {
+            float4 delta = MorphTestPositionDeltas.Load(int3(vertexId, 0, 0));
+            streams.PositionWS.xyz += delta.xyz * MorphTestWeight;
+        }
+    }
+};

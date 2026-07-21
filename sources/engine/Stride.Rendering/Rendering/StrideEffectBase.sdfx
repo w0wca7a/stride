@@ -95,8 +95,8 @@ namespace Stride.Rendering
         // -----------------------------------------------
         if (MaterialKeys.HasMorphTargets)
         {
-            mixin macro MaterialKeys.MorphTargetMaxCount;
             mixin TransformationMorphTargets;
+            mixin TransformationMorphTargetsTest;
 
             if (MaterialKeys.HasMorphTargetNormals)
             {
