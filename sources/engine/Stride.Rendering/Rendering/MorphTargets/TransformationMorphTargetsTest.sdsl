@@ -10,7 +10,7 @@ shader TransformationMorphTargetsTest : TransformationBase, PositionStream4, Nor
     cbuffer PerDraw
     {
         stage float MorphTestWeight;
-        stage float MorphTestWeights[64];        
+        stage float4 MorphTestWeights[16];        
         stage int MorphTestTargetCount;
         stage int MorphTestVertexCount;
     /*
@@ -37,7 +37,15 @@ shader TransformationMorphTargetsTest : TransformationBase, PositionStream4, Nor
         
         for (int i = 0; i < MorphTestTargetCount; i++)
         {
-            float weight = MorphTestWeights[i];
+            int vi = i >> 2;        // i / 4
+            int ci = i & 3;         // i % 4
+
+            //float weight = MorphTestWeights[i];
+            float weight;
+            if      (ci == 0) weight = MorphTestWeights[vi].x;
+            else if (ci == 1) weight = MorphTestWeights[vi].y;
+            else if (ci == 2) weight = MorphTestWeights[vi].z;
+            else              weight = MorphTestWeights[vi].w;
 
             if (weight == 0)
                 continue;
