@@ -6,6 +6,7 @@ using Stride.Rendering.Materials;
 using Stride.Core.Storage;
 using Stride.Core;
 using Stride.Core.Mathematics;
+using Stride.Rendering.ComputeEffect;
 
 namespace Stride.Rendering;
 
@@ -13,13 +14,17 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
 {
     private struct MorphInfo
     {
-        public Texture PositionTexture;
-        public Texture NormalTexture;
+        //public Texture PositionTexture;
+        //public Texture NormalTexture;
+        public Graphics.Buffer PositionDeltaBuffer;   // ← добавить (SRV, входной)
+        public Graphics.Buffer NormalDeltaBuffer;     // ← добавить (SRV, входной)
+        public Graphics.Buffer MorphedPositionsBuffer; // ← добавить (UAV→SRV, выходной)
+        public Graphics.Buffer MorphedNormalsBuffer;   // ← добавить (UAV→SRV, выходной)
         public bool Initialized;
     }
 
     [DataMember] public bool EnableTest { get; set; } = true;
-
+    private ComputeEffectShader _computeShader;
     private readonly Dictionary<Mesh, MorphInfo> _infos = [];
     private StaticObjectPropertyKey<RenderEffect> _renderEffectKey;
 
@@ -54,6 +59,9 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
             .CreateDrawCBufferOffsetSlot("TransformationMorphTargetsTest.MorphTestVertexCount");
 
         _morphWeightKeys = RootRenderFeature.RenderData.CreateObjectKey<float[]>();
+
+        var renderContext = RenderContext.GetShared(RenderSystem.Services);
+        _computeShader = new ComputeEffectShader(renderContext) { ShaderSourceName = "ComputeTransformationMorphTargets" };
     }
 
     public override void Extract()
@@ -66,7 +74,7 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
             var renderMesh = (RenderMesh)objectNode.RenderObject;
             var mesh = renderMesh?.Mesh;
             if (mesh?.MorphTargets == null) continue;
-            if (mesh.MorphTargets.VertexCount > 16384) continue;
+            //if (mesh.MorphTargets.VertexCount > 16384) continue;
 
             float[] weights = EnableTest ? _testWeights : mesh.Parameters.Get(MorphTargetKeys.Weights);
 
@@ -87,7 +95,7 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
 
             var mesh = renderMesh.Mesh;
             if (mesh?.MorphTargets == null) continue;
-            if (mesh.MorphTargets.VertexCount > 16384) continue;
+            //if (mesh.MorphTargets.VertexCount > 16384) continue;
 
             var hasMorphTargets = mesh.Parameters.Get(MaterialKeys.HasMorphTargets);
 
@@ -138,16 +146,16 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
             var renderMesh = (RenderMesh)objectNode.RenderObject;
             var mesh = renderMesh?.Mesh;
             if (mesh?.MorphTargets == null) continue;
-            if (mesh.MorphTargets.VertexCount > 16384) continue;
+            //if (mesh.MorphTargets.VertexCount > 16384) continue;
 
             if (mesh.MorphTargets.PositionDeltaData == null || mesh.MorphTargets.PositionDeltaData.Length == 0) continue;
 
             if (!_infos.TryGetValue(mesh, out var info))
             {
                 var def = mesh.MorphTargets;
-                int floatCount = def.VertexCount * 4;
-                var firstTargetData = new float[floatCount]; 
-
+                //int floatCount = def.VertexCount * 4;
+                //var firstTargetData = new float[floatCount]; 
+                /*
                 info.PositionTexture = Texture.New2D(
                     context.GraphicsDevice,
                     def.VertexCount,
@@ -156,12 +164,26 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
                     TextureFlags.ShaderResource,
                     1,
                     GraphicsResourceUsage.Default);
+                */
+                // Входные буферы (один раз, не меняются)
+                var posData = def.PositionDeltaData;
+                var posVectors = new Vector4[posData.Length / 4];
+                for (int k = 0; k < posVectors.Length; k++)
+                    posVectors[k] = new Vector4(posData[k * 4], posData[k * 4 + 1], posData[k * 4 + 2], posData[k * 4 + 3]);
 
-                info.PositionTexture.SetData(context.CommandList, def.PositionDeltaData); // copying only one target
+                info.PositionDeltaBuffer = Graphics.Buffer.New(
+                    context.GraphicsDevice,
+                    //def.PositionDeltaData,
+                    posVectors,
+                    BufferFlags.StructuredBuffer | BufferFlags.ShaderResource,
+                    GraphicsResourceUsage.Dynamic);
+
+                //info.PositionTexture.SetData(context.CommandList, def.PositionDeltaData); // copying only one target
 
                 // Нормали — если есть данные
                 if (def.NormalDeltaData != null && def.NormalDeltaData.Length > 0)
                 {
+                    /*
                     info.NormalTexture = Texture.New2D(
                         context.GraphicsDevice,
                         def.VertexCount, 
@@ -170,13 +192,73 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
                         TextureFlags.ShaderResource, 
                         1,
                         GraphicsResourceUsage.Default);
-                    
-                    info.NormalTexture.SetData(context.CommandList, def.NormalDeltaData);
+                    */
+                    var norData = def.NormalDeltaData;
+                    var norVectors = new Vector4[norData.Length / 4];
+                    for (int k = 0; k < norVectors.Length; k++)
+                        norVectors[k] = new Vector4(norData[k * 4], norData[k * 4 + 1], norData[k * 4 + 2], norData[k * 4 + 3]);
+
+                    info.NormalDeltaBuffer = Graphics.Buffer.New(
+                            context.GraphicsDevice,
+                            //def.NormalDeltaData,
+                            norVectors,
+                            BufferFlags.StructuredBuffer | BufferFlags.ShaderResource,
+                            GraphicsResourceUsage.Dynamic);
+                    //info.NormalTexture.SetData(context.CommandList, def.NormalDeltaData);
                 }
+
+                // Выходные буферы (UAV для compute, SRV для vertex shader)
+                info.MorphedPositionsBuffer = Graphics.Buffer.New<Vector4>(
+    context.GraphicsDevice,
+    def.VertexCount,
+    BufferFlags.StructuredBuffer | BufferFlags.ShaderResource | BufferFlags.UnorderedAccess,
+    GraphicsResourceUsage.Default);
+
+                info.MorphedNormalsBuffer = Graphics.Buffer.New<Vector4>(
+    context.GraphicsDevice,
+    def.VertexCount,
+    BufferFlags.StructuredBuffer | BufferFlags.ShaderResource | BufferFlags.UnorderedAccess,
+    GraphicsResourceUsage.Default);
 
                 info.Initialized = true;
                 _infos[mesh] = info;
             }
+        }
+
+        foreach (var objectNodeReference in RootRenderFeature.ObjectNodeReferences)
+        {
+            var objectNode = RootRenderFeature.GetObjectNode(objectNodeReference);
+            var renderMesh = (RenderMesh)objectNode.RenderObject;
+            var mesh = renderMesh?.Mesh;
+            if (mesh?.MorphTargets == null) continue;
+
+            if (!_infos.TryGetValue(mesh, out var info)) continue;
+
+            var weights = EnableTest
+                ? _testWeights
+                : morphWeightDatas[objectNodeReference];
+
+            // Упаковка весов в float4[16]
+            for (int i = 0; i < 16; i++)
+            {
+                _packedWeights[i] = new Vector4(
+                    i * 4 + 0 < weights.Length ? weights[i * 4 + 0] : 0f,
+                    i * 4 + 1 < weights.Length ? weights[i * 4 + 1] : 0f,
+                    i * 4 + 2 < weights.Length ? weights[i * 4 + 2] : 0f,
+                    i * 4 + 3 < weights.Length ? weights[i * 4 + 3] : 0f);
+            }
+            
+            _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.MorphWeights, _packedWeights);
+            _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.MorphTargetCount, mesh.MorphTargets.MorphTargetCount);
+            _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.VertexCount, mesh.MorphTargets.VertexCount);
+            _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.MorphPositionDeltas, info.PositionDeltaBuffer);
+            _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.MorphNormalDeltas, info.NormalDeltaBuffer);
+            _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.MorphedPositions, info.MorphedPositionsBuffer);
+            _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.MorphedNormals, info.MorphedNormalsBuffer);
+            
+            int groups = (mesh.MorphTargets.VertexCount + 63) / 64;
+            _computeShader.ThreadGroupCounts = new Int3(groups, 1, 1);
+            _computeShader.Draw(context);
         }
 
         // Запись в cbuffer
@@ -195,19 +277,22 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
 
             var renderMesh = (RenderMesh)renderNode.RenderObject;
             if (renderMesh.Mesh?.MorphTargets == null) continue;
-            if (renderMesh.Mesh.MorphTargets.VertexCount > 16384) continue;
+            //if (renderMesh.Mesh.MorphTargets.VertexCount > 16384) continue;
 
 
             if (!_infos.TryGetValue(renderMesh.Mesh, out var info)) continue;
             var logicalGroup = perDrawLayout.GetLogicalGroup(_morphLogicalGroup);
             if (logicalGroup.Hash != ObjectId.Empty)
             {
-                renderNode.Resources.DescriptorSet.SetShaderResourceView(logicalGroup.DescriptorEntryStart + 0, info.PositionTexture);
+                //renderNode.Resources.DescriptorSet.SetShaderResourceView(logicalGroup.DescriptorEntryStart + 0, info.PositionTexture);
+                renderNode.Resources.DescriptorSet.SetShaderResourceView(logicalGroup.DescriptorEntryStart + 0, info.MorphedPositionsBuffer);
                 //Logger.Info($"Prepare: texture bound at slot {logicalGroup.DescriptorEntryStart}");
-
+                renderNode.Resources.DescriptorSet.SetShaderResourceView(logicalGroup.DescriptorEntryStart + 1, info.MorphedNormalsBuffer);
+                /*
                 if (info.NormalTexture != null)
                     renderNode.Resources.DescriptorSet
                         .SetShaderResourceView(logicalGroup.DescriptorEntryStart + 1, info.NormalTexture);
+                */
             }
             else Logger.Warning("Prepare: logical group MorphTargets not found");
 

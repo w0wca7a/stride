@@ -3,35 +3,33 @@ shader TransformationMorphTargetsTest : TransformationBase, PositionStream4, Nor
     rgroup PerDraw.MorphTargetsTest
     {
         //Texture2DArray<float4> MorphTestPositionDeltas;
-        Texture2D<float4> MorphTestPositionDeltas;
-        Texture2D<float4> MorphTestNormalDeltas;
-    }
+        //Texture2D<float4> MorphTestPositionDeltas;
+        //Texture2D<float4> MorphTestNormalDeltas;
 
+        StructuredBuffer<float4> MorphedPositions;
+        StructuredBuffer<float4> MorphedNormals;
+    }
+    /*
     cbuffer PerDraw
     {
         stage float MorphTestWeight;
         stage float4 MorphTestWeights[16];        
         stage int MorphTestTargetCount;
         stage int MorphTestVertexCount;
-    /*
-        stage float4 MorphTestWeight[16];
-        stage int MorphTestTargetCount;
-        stage int MorphTestVertexCount;
-        stage int MorphTestSlicesPerTarget;
-        */
     }
-
     stage stream float3 morphNormalDelta;
+    */
 
     override stage void PreTransformPosition()
     {        
         base.PreTransformPosition();
 
-        int vertexId = (int)streams.VertexID;
+        uint vertexId = streams.VertexID;
 
+        streams.PositionWS.xyz += MorphedPositions[vertexId].xyz;
+        /*
         if (vertexId >= MorphTestVertexCount || MorphTestTargetCount <= 0)
             return;
-
         float3 positionDelta = float3(0, 0, 0);
         float3 normalDelta   = float3(0, 0, 0);
         
@@ -61,27 +59,6 @@ shader TransformationMorphTargetsTest : TransformationBase, PositionStream4, Nor
 
         streams.PositionWS.xyz += positionDelta;
         streams.morphNormalDelta = normalDelta; // передаём в NormalMesh шейдер
-
-        /* for one target
-        if (vertexId < MorphTestVertexCount)
-        {
-            float4 delta = MorphTestPositionDeltas.Load(int3(vertexId, 0, 0));
-            streams.PositionWS.xyz += delta.xyz * MorphTestWeight;
-        }
-        */
-        /*
-
-        // Без if — маска устраняет branching
-        float inRange = (float)(vertexId < MorphVertexCount);
-
-        int col = vertexId % 16384;
-
-        for (int t = 0; t < MorphTargetCount; t++)
-        {
-            int slice = t * MorphSlicesPerTarget + (vertexId / 16384);
-            float4 delta = MorphTargetPositionDeltas.Load(int4(col, 0, slice, 0));
-            streams.PositionWS.xyz += delta.xyz * GetWeight(t) * inRange;
-        }
         */
     }
 };
