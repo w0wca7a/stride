@@ -2,6 +2,7 @@ shader TransformationMorphTargetsTest : TransformationBase, PositionStream4, Nor
 {
     rgroup PerDraw.MorphTargetsTest
     {
+        //Texture2DArray<float4> MorphTestPositionDeltas;
         Texture2D<float4> MorphTestPositionDeltas;
     }
 
@@ -9,18 +10,43 @@ shader TransformationMorphTargetsTest : TransformationBase, PositionStream4, Nor
     {
         stage float MorphTestWeight;
         stage int MorphTestVertexCount;
+    /*
+        stage float4 MorphTestWeight[16];
+        stage int MorphTestTargetCount;
+        stage int MorphTestVertexCount;
+        stage int MorphTestSlicesPerTarget;
+        */
     }
-
+    /*
+    float GetWeight(int t)
+    {
+        // Распаковываем float4[16] → 64 значения
+        return MorphTestWeight[t / 4][t % 4];
+    }
+    */
     override stage void PreTransformPosition()
     {        
         base.PreTransformPosition();
 
         int vertexId = (int)streams.VertexID;
-
         if (vertexId < MorphTestVertexCount)
         {
             float4 delta = MorphTestPositionDeltas.Load(int3(vertexId, 0, 0));
             streams.PositionWS.xyz += delta.xyz * MorphTestWeight;
         }
+        /*
+
+        // Без if — маска устраняет branching
+        float inRange = (float)(vertexId < MorphVertexCount);
+
+        int col = vertexId % 16384;
+
+        for (int t = 0; t < MorphTargetCount; t++)
+        {
+            int slice = t * MorphSlicesPerTarget + (vertexId / 16384);
+            float4 delta = MorphTargetPositionDeltas.Load(int4(col, 0, slice, 0));
+            streams.PositionWS.xyz += delta.xyz * GetWeight(t) * inRange;
+        }
+        */
     }
 };

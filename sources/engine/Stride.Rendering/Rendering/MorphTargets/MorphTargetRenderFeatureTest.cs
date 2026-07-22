@@ -99,7 +99,7 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
 
             if (_testWeight >= 1f) { _testWeight = 1f; _weightDirection = -1f; }
             else if (_testWeight <= 0f) { _testWeight = 0f; _weightDirection = 1f; }
-            Logger.Info($"Prepare: TestWeight={_testWeight:F3}");
+            //Logger.Info($"Prepare: TestWeight={_testWeight:F3}");
         }
 
         // Ленивое создание текстур
@@ -139,7 +139,10 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
         for (int i = 0; i < RootRenderFeature.RenderNodes.Count; i++)
         {
             var renderNode = RootRenderFeature.RenderNodes[i];
-            var perDrawLayout = renderNode.RenderEffect?.Reflection?.PerDrawLayout;
+
+            if (renderNode.RenderEffect == null) continue;
+            if (!renderNode.RenderEffect.IsUsedDuringThisFrame(RenderSystem)) continue;
+            var perDrawLayout = renderNode.RenderEffect.Reflection?.PerDrawLayout;
             if (perDrawLayout == null)
             {
                 //Logger.Warning($"Prepare: RenderNode[{i}] perDrawLayout is null");
@@ -149,31 +152,31 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
             var renderMesh = (RenderMesh)renderNode.RenderObject;
             if (renderMesh.Mesh?.MorphTargets == null) continue;
             if (renderMesh.Mesh.MorphTargets.VertexCount > 16384) continue;
-           
+
 
             if (!_infos.TryGetValue(renderMesh.Mesh, out var info)) continue;
             var logicalGroup = perDrawLayout.GetLogicalGroup(_morphLogicalGroup);
             if (logicalGroup.Hash != ObjectId.Empty)
             {
                 renderNode.Resources.DescriptorSet.SetShaderResourceView(logicalGroup.DescriptorEntryStart + 0, info.PositionTexture);
-                Logger.Info($"Prepare: texture bound at slot {logicalGroup.DescriptorEntryStart}");
+                //Logger.Info($"Prepare: texture bound at slot {logicalGroup.DescriptorEntryStart}");
             }
             else Logger.Warning("Prepare: logical group MorphTargets not found");
 
             var weightOff = perDrawLayout.GetConstantBufferOffset(_weightOffset);
-            Logger.Info($"Prepare cbuffer: mesh='{renderMesh.Mesh.Name}' weightOff={weightOff}");
+            //Logger.Info($"Prepare cbuffer: mesh='{renderMesh.Mesh.Name}' weightOff={weightOff}");
 
             if (weightOff != -1)
                 *((float*)((byte*)renderNode.Resources.ConstantBuffer.Data + weightOff)) =
                     EnableTest ? _testWeight : morphWeightData[renderNode.RenderObject.ObjectNode];
             var countOff = perDrawLayout.GetConstantBufferOffset(_vertexCountOffset);
-            Logger.Info($"Prepare cbuffer: countOff={countOff}");
+            //Logger.Info($"Prepare cbuffer: countOff={countOff}");
 
             if (countOff != -1)
             {
                 var count = renderMesh.Mesh.MorphTargets.VertexCount;
                 *((int*)((byte*)renderNode.Resources.ConstantBuffer.Data + countOff)) = count;
-                Logger.Info($"Prepare cbuffer: writing MorphVertexCount={count}");
+                //Logger.Info($"Prepare cbuffer: writing MorphVertexCount={count}");
             }
         }
     }
