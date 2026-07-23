@@ -13,22 +13,22 @@ shader ComputeTransformationMorphTargets : ComputeShaderBase
     stage RWStructuredBuffer<float4> MorphedNormals;
 
     stage float4 MorphWeights[16];
-    stage int MorphTargetCount;
-    stage int VertexCount;
+    stage uint MorphTargetCount;
+    stage uint VertexCount;
 
     override void Compute()
     {
         uint vertexId = streams.DispatchThreadId.x;
-        if (vertexId >= (uint)VertexCount) return;
+        if (vertexId >= VertexCount) return;
 
         float3 posDelta    = float3(0.0f, 0.0f, 0.0f);
         float3 normalDelta = float3(0.0f, 0.0f, 0.0f);
 
-        for (int i = 0; i < MorphTargetCount; i++)
+        for (uint i = 0; i < MorphTargetCount; i++)
         {
             // Unpacking weights float4[16]
-            int vi = i >> 2; // i / 4
-            int ci = i & 3;  // i % 4
+            uint vi = i >> 2; // i / 4
+            uint ci = i & 3;  // i % 4
             float weight;
             if      (ci == 0) weight = MorphWeights[vi].x;
             else if (ci == 1) weight = MorphWeights[vi].y;
@@ -37,7 +37,7 @@ shader ComputeTransformationMorphTargets : ComputeShaderBase
 
             if (weight == 0.0f) continue;
 
-            uint idx = (uint)i * (uint)VertexCount + vertexId;
+            uint idx = i * VertexCount + vertexId;
 
             posDelta    += MorphPositionDeltas[idx].xyz * weight;
             normalDelta += MorphNormalDeltas[idx].xyz   * weight;
