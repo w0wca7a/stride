@@ -82,6 +82,6 @@ namespace Stride.Rendering
         /// Gets or sets the morph target (blend shape) definition for this mesh.
         /// Null if this mesh has no morph targets.
         /// </summary>
-        public MeshMorphTargetDefinition MorphTargets;
+        public MorphTargetDefinition MorphTargets;
     }
 }

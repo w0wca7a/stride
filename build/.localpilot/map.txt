@@ -1,0 +1,11 @@
+## WORKSPACE EXECUTIVE SUMMARY (YAML)
+# Generated: 2026-07-24T22:09:16.1318968+03:00
+# Root: D:\repos\stride\build
+Architecture:
+  Type: General Codebase
+  Scale: 0 relevant source files
+  Components: 0
+  Controllers: 0
+  Models: 0
+  Services: 0
+---

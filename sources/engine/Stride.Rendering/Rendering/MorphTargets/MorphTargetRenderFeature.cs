@@ -121,17 +121,14 @@ public class MorphTargetRenderFeature : SubRenderFeature
             var mesh = renderMesh?.Mesh;
             if (mesh?.MorphTargets == null) continue;
 
-            if (mesh.MorphTargets.PositionDeltaData == null || mesh.MorphTargets.PositionDeltaData.Length == 0) continue;
+            if (mesh.MorphTargets.PositionDeltas == null || mesh.MorphTargets.PositionDeltas.Length == 0) continue;
 
             if (!_infos.TryGetValue(mesh, out var info))
             {
                 var def = mesh.MorphTargets;
                 int numVertices = def.VertexCount;
                 int numTargets = def.MorphTargetCount;
-                int slicesPerTarget = def.SlicesPerTarget;
-                int width = Math.Min(numVertices, 16384);
-                int totalSlices = numTargets * slicesPerTarget;
-
+                /*
                 info.PositionTexture = Texture.New2D(
                     context.GraphicsDevice,     //device
                     //width,                      //width
@@ -154,7 +151,7 @@ public class MorphTargetRenderFeature : SubRenderFeature
                         // Паддинг до 16384 чтобы не было проблем с неполным последним слайсом
                         var sliceData = new float[16384 * 4];
                         Array.Copy(
-                            def.PositionDeltaData,
+                            def.PositionDeltas,
                             t * numVertices * 4 + vertexStart * 4,
                             sliceData, 0,
                             vertexCount * 4);
@@ -162,7 +159,7 @@ public class MorphTargetRenderFeature : SubRenderFeature
                         info.PositionTexture.SetData(context.CommandList, sliceData, sliceIndex, 0);
                     }
                 }
-
+                */
                 info.Initialized = true;
                 _infos[mesh] = info;
             }
@@ -212,10 +209,6 @@ public class MorphTargetRenderFeature : SubRenderFeature
             var vertexCountOff = perDrawLayout.GetConstantBufferOffset(_vertexCountOffset);
             if (vertexCountOff != -1)
                 *((int*)((byte*)renderNode.Resources.ConstantBuffer.Data + vertexCountOff)) = def.VertexCount;
-
-            var slicesOff = perDrawLayout.GetConstantBufferOffset(_slicesPerTargetOffset);
-            if (slicesOff != -1)
-                *((int*)((byte*)renderNode.Resources.ConstantBuffer.Data + slicesOff)) = def.SlicesPerTarget;
 
             //Logger.Info($"Prepare cbuffer: MorphTargetCount={def.MorphTargetCount} MorphVertexCount={def.VertexCount} SlicesPerTarget={def.SlicesPerTarget}");
         }

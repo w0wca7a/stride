@@ -39,7 +39,7 @@ namespace Stride.Rendering
 
         /// <summary>
         /// Current morph target weights for this mesh instance.
-        /// Array length matches <see cref="MeshMorphTargetDefinition.MorphTargetCount"/>.
+        /// Array length matches <see cref="MorphTargetDefinition.MorphTargetCount"/>.
         /// </summary>
         public float[] MorphWeights;
 

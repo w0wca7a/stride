@@ -1223,7 +1223,7 @@ namespace Stride.Importer.ThreeD
             drawData.DrawCount = (int)nbIndices;
 
             // Extract morph targets (blend shapes) from Assimp AnimMeshes
-            MeshMorphTargetDefinition morphTargets = null;
+            MorphTargetDefinition morphTargets = null;
             if (mesh->MNumAnimMeshes > 0)
             {
                 morphTargets = ExtractMorphTargets(mesh, vertexBufferBinding, drawData);
@@ -1276,17 +1276,17 @@ namespace Stride.Importer.ThreeD
         ///     MeshDraw for the base mesh (not modified here; morph data travels separately).
         /// </param>
         /// <returns>
-        ///     A <see cref="MeshMorphTargetDefinition"/> whose texture data arrays are ready
+        ///     A <see cref="MorphTargetDefinition"/> whose texture data arrays are ready
         ///     for <see cref="MeshMorphTargetCompiler"/> to upload, or <c>null</c> if the
         ///     mesh has no anim-meshes.
         /// </returns>
-        private unsafe MeshMorphTargetDefinition ExtractMorphTargets(
+        private unsafe MorphTargetDefinition ExtractMorphTargets(
             Silk.NET.Assimp.Mesh* mesh,
             VertexBufferBinding baseVertexBinding,
             MeshDraw drawData)
         {
             const int MaxMorphTargets = 64; //matches MorphWeights[16] (16×float4 = 64 weights)
-            const int MaxTextureWidth = 16384;
+            //const int MaxTextureWidth = 16384;
             if (mesh->MNumAnimMeshes == 0)
                 return null;
 
@@ -1319,14 +1319,11 @@ namespace Stride.Importer.ThreeD
             //   layout: [targetIndex * numVertices + vertexIndex] → float4 (XYZW)
             // ----------------------------------------------------------------
             // Each vertex maps to 4 floats (R32G32B32A32_Float).
-            // For experiment R16G16B16A16_Float 
             int floatsPerTarget = numVertices * 4;
 
             float[] positionData = new float[numTargets * floatsPerTarget];
-            //Core.Mathematics.Half[] positionData = new Core.Mathematics.Half[numTargets * floatsPerTarget];
             float[] normalData = hasNormals ? new float[numTargets * floatsPerTarget] : null;
-            //Core.Mathematics.Half[] normalData = hasNormals ? new Core.Mathematics.Half[numTargets * floatsPerTarget] : null;
-
+            
             var descriptions = new MorphTargetDescription[numTargets];
 
             // ----------------------------------------------------------------
@@ -1363,13 +1360,9 @@ namespace Stride.Importer.ThreeD
                         Vector3 delta = morphPos - basePos;
 
                         positionData[pixelOffset + 0] = delta.X;
-                        //positionData[pixelOffset + 0] = new Core.Mathematics.Half(delta.X);
                         positionData[pixelOffset + 1] = delta.Y;
-                        //positionData[pixelOffset + 1] = new Core.Mathematics.Half(delta.Y);
                         positionData[pixelOffset + 2] = delta.Z;
-                        //positionData[pixelOffset + 2] = new Core.Mathematics.Half(delta.Z);
                         positionData[pixelOffset + 3] = 0f; // W unused
-                        //positionData[pixelOffset + 3] = (Core.Mathematics.Half)0; // W unused
                     }
 
                     // ---- Normal delta ----
@@ -1397,13 +1390,9 @@ namespace Stride.Importer.ThreeD
                             Vector3 delta = morphNrm - baseNrm;
 
                             normalData[pixelOffset + 0] = delta.X;
-                            //normalData[pixelOffset + 0] = new Core.Mathematics.Half(delta.X);
                             normalData[pixelOffset + 1] = delta.Y;
-                            //normalData[pixelOffset + 1] = new Core.Mathematics.Half(delta.Y);
                             normalData[pixelOffset + 2] = delta.Z;
-                            //normalData[pixelOffset + 2] = new Core.Mathematics.Half(delta.Z);
                             normalData[pixelOffset + 3] = 0f;
-                            //normalData[pixelOffset + 3] = (Core.Mathematics.Half)0;
                         }
                         // else: anim-mesh has no normals for this target → delta stays 0
                     }
@@ -1413,21 +1402,18 @@ namespace Stride.Importer.ThreeD
             Logger.Info($"Extracted {numTargets} morph targets for mesh '{mesh->MName.AsString}' " +
                         $"({numVertices} vertices, normals={hasNormals}).");
 
-            int slicesPerTarget = (numVertices + MaxTextureWidth - 1) / MaxTextureWidth;
-
-            return new MeshMorphTargetDefinition
+            return new MorphTargetDefinition
             {
                 MorphTargets = descriptions,
                 VertexCount = numVertices,
                 HasNormals = hasNormals,
                 HasTangents = hasTangents,
-                SlicesPerTarget = slicesPerTarget,
-                PositionDeltaData = positionData,
-                NormalDeltaData = normalData,
+                PositionDeltas = positionData,
+                NormalDeltas = normalData,
             };
         }
         /*
-        private unsafe MeshMorphTargetDefinition ExtractMorphTargets(Silk.NET.Assimp.Mesh* mesh, VertexBufferBinding baseVertexBufferBinding, MeshDraw drawData)
+        private unsafe MorphTargetDefinition ExtractMorphTargets(Silk.NET.Assimp.Mesh* mesh, VertexBufferBinding baseVertexBufferBinding, MeshDraw drawData)
         {
             var numTargets = (int)mesh->MNumAnimMeshes;
             var numVertices = (int)mesh->MNumVertices;
@@ -1563,7 +1549,7 @@ namespace Stride.Importer.ThreeD
 
             Logger.Info($"Extracted {numTargets} morph targets with {numVertices} vertices each (normals: {hasNormals}, tangents: {hasTangents})");
 
-            return new MeshMorphTargetDefinition
+            return new MorphTargetDefinition
             {
                 MorphTargets = targets,
                 VertexCount = numVertices,
@@ -2132,7 +2118,7 @@ namespace Stride.Importer.ThreeD
         /// <summary>
         /// Morph target definition for this mesh (null if no morph targets).
         /// </summary>
-        public MeshMorphTargetDefinition MorphTargets;
+        public MorphTargetDefinition MorphTargets;
     }
 
     public class MaterialInstantiation

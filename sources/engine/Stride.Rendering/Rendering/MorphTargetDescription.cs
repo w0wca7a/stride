@@ -31,7 +31,7 @@ namespace Stride.Rendering
     /// which samples via <c>Texture.Load(int3(vertexId, targetIndex, 0))</c>.
     /// </summary>
     [DataContract]
-    public class MeshMorphTargetDefinition
+    public class MorphTargetDefinition
     {
         /// <summary>
         /// Descriptions of each morph target (name, default weight, etc.).
@@ -53,21 +53,19 @@ namespace Stride.Rendering
         //  Layout: [targetIndex * VertexCount + vertexIndex] → float4
         //  i.e. row-major with rows = targets, columns = vertices.
         // ----------------------------------------------------------------
- public int SlicesPerTarget;
+        //public int SlicesPerTarget;
         /// <summary>
         /// Flat position-delta data for all targets × vertices.
         /// Each element is XYZW where W is unused (always 0).
         /// Length == MorphTargetCount * VertexCount * 4.
         /// </summary>
-        public float[] PositionDeltaData;
-        //public Core.Mathematics.Half[] PositionDeltaData;
+        public float[] PositionDeltas;
  
         /// <summary>
-        /// Flat normal-delta data. Same layout as <see cref="PositionDeltaData"/>.
+        /// Flat normal-delta data. Same layout as <see cref="PositionDeltas"/>.
         /// Null when <see cref="HasNormals"/> is false.
         /// </summary>
-        public float[] NormalDeltaData;
-        //public Core.Mathematics.Half[] NormalDeltaData;
+        public float[] NormalDeltas;
  
         /// <summary>Gets the number of morph targets.</summary>
         public int MorphTargetCount => MorphTargets?.Length ?? 0;

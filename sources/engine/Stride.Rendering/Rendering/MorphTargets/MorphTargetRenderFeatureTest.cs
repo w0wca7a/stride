@@ -119,14 +119,14 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
             var renderMesh = (RenderMesh)objectNode.RenderObject;
             var mesh = renderMesh?.Mesh;
             if (mesh?.MorphTargets == null) continue;
-            if (mesh.MorphTargets.PositionDeltaData == null ||
-                mesh.MorphTargets.PositionDeltaData.Length == 0) continue;
+            if (mesh.MorphTargets.PositionDeltas == null ||
+                mesh.MorphTargets.PositionDeltas.Length == 0) continue;
 
             if (!_infos.TryGetValue(mesh, out var info))
             {
                 var def = mesh.MorphTargets;
 
-                var posData = def.PositionDeltaData;
+                var posData = def.PositionDeltas;
                 var posVectors = new Vector4[posData.Length / 4];
                 for (int k = 0; k < posVectors.Length; k++)
                     posVectors[k] = new Vector4(posData[k * 4], posData[k * 4 + 1], posData[k * 4 + 2], posData[k * 4 + 3]);
@@ -138,9 +138,9 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
                     GraphicsResourceUsage.Dynamic);
 
                 // Normals
-                if (def.NormalDeltaData != null && def.NormalDeltaData.Length > 0)
+                if (def.NormalDeltas != null && def.NormalDeltas.Length > 0)
                 {
-                    var norData = def.NormalDeltaData;
+                    var norData = def.NormalDeltas;
                     var norVectors = new Vector4[norData.Length / 4];
                     for (int k = 0; k < norVectors.Length; k++)
                         norVectors[k] = new Vector4(norData[k * 4], norData[k * 4 + 1], norData[k * 4 + 2], norData[k * 4 + 3]);
@@ -192,8 +192,8 @@ public class MorphTargetRenderFeatureTest : SubRenderFeature
             }
             
             _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.MorphWeights, _packedWeights);
-            _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.MorphTargetCount, ((uint)mesh.MorphTargets.MorphTargetCount));
-            _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.VertexCount, ((uint)mesh.MorphTargets.VertexCount));
+            _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.MorphTargetCount, (uint)mesh.MorphTargets.MorphTargetCount);
+            _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.VertexCount, (uint)mesh.MorphTargets.VertexCount);
             _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.MorphPositionDeltas, info.PositionDeltaBuffer);
             _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.MorphNormalDeltas, info.NormalDeltaBuffer);
             _computeShader.Parameters.Set(ComputeTransformationMorphTargetsKeys.MorphedPositions, info.MorphedPositionsBuffer);
