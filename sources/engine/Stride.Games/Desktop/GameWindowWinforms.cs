@@ -52,12 +52,21 @@ namespace Stride.Games
 
         public override void BeginScreenDeviceChange(bool willBeFullScreen)
         {
+            // Hiding/SendToBack below raises a transient WM_ACTIVATEAPP(false); guard the
+            // GameForm so it is not interpreted as an alt-tab cancelling the switch mid-flight.
+            if (form is GameForm switchingForm)
+                switchingForm.IsSwitchingFullScreen = true;
+
             if (willBeFullScreen && !isFullScreenMaximized && form != null)
             {
                 savedFormBorderStyle = form.FormBorderStyle;
             }
 
-            if (willBeFullScreen != isFullScreenMaximized)
+            // Only hide the window when LEAVING fullscreen. Hiding + SendToBack while ENTERING
+            // costs us the foreground in the middle of the switch: the swapchain then goes
+            // fullscreen occluded behind other windows (the user has to click a second time),
+            // and Windows may refuse to give the foreground back programmatically.
+            if (willBeFullScreen != isFullScreenMaximized && !willBeFullScreen)
             {
                 deviceChangeChangedVisible = true;
                 oldVisible = Visible;
@@ -90,6 +99,15 @@ namespace Stride.Games
             if (deviceChangeWillBeFullScreen.Value)
             {
                 isFullScreenMaximized = true;
+
+                // BeginScreenDeviceChange sent the form to back while switching; bring it back
+                // to the foreground, otherwise the swapchain enters fullscreen occluded behind
+                // other windows and the user has to click the window a second time to see it.
+                if (form != null)
+                {
+                    form.BringToFront();
+                    form.Activate();
+                }
             }
             else if (isFullScreenMaximized)
             {
@@ -118,6 +136,7 @@ namespace Stride.Games
             if (gameForm != null)
             {
                 gameForm.IsFullScreen = isFullScreenMaximized;
+                gameForm.IsSwitchingFullScreen = false;
             }
 
             deviceChangeWillBeFullScreen = null;
@@ -156,11 +175,12 @@ namespace Stride.Games
             var gameForm = Control as GameForm;
             if (gameForm != null)
             {
-                //gameForm.AppActivated += OnActivated;
-                //gameForm.AppDeactivated += OnDeactivated;
+                gameForm.AppActivated += OnActivated;
+                gameForm.AppDeactivated += OnDeactivated;
                 gameForm.UserResized += OnClientSizeChanged;
                 gameForm.FullscreenToggle += OnFullscreenToggle;
                 gameForm.DisableFullScreen += OnDisableFullScreen;
+                gameForm.EnableFullScreen += OnEnableFullScreen;
                 gameForm.FormClosing += OnClosing;
             }
             else
