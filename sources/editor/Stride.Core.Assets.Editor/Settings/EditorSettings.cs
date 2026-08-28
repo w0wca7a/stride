@@ -127,6 +127,12 @@ namespace Stride.Core.Assets.Editor.Settings
         // Graphics API Game Studio itself loads; applied at startup by GraphicsApiSelector, so it needs a restart.
         public static SettingsKey<string> GraphicsApi { get; }
 
+        /// <summary>Value meaning "follow the platform default" for <see cref="GraphicsApi"/>.</summary>
+        public const string GraphicsApiDefault = "Default";
+
+        // Graphics API Game Studio itself loads; applied at startup by GraphicsApiSelector, so it needs a restart.
+        public static SettingsKey<string> GraphicsApi { get; }
+
         public static bool NeedRestart { get; set; }
 
         public static void Initialize()

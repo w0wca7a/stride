@@ -119,7 +119,8 @@ namespace Stride.Importer.ThreeD
                     Materials = ExtractMaterials(scene, materialNames),
                     Models = ExtractModels(scene, meshNames, materialNames, nodeNames),
                     Nodes = ExtractNodeHierarchy(scene, nodeNames),
-                    AnimationNodes = ExtractAnimations(scene, animationNames)
+                    AnimationNodes = ExtractAnimations(scene, animationNames),
+                    MorphTargetNames = ExtractMorphTargetNames(scene)
                 };
 
                 if (extractTextureDependencies)
@@ -251,6 +252,18 @@ namespace Stride.Importer.ThreeD
                     if (meshInfo.HasSkinningNormal && meshInfo.TotalClusterCount > 0)
                         nodeMeshData.Parameters.Set(MaterialKeys.HasSkinningNormal, true);
 
+                    // Morph targets (blend shapes)
+                    if (meshInfo.MorphTargets != null)
+                    {
+                        nodeMeshData.MorphTargets = meshInfo.MorphTargets;
+                        nodeMeshData.Parameters.Set(MaterialKeys.HasMorphTargets, true);
+
+                        if (meshInfo.MorphTargets.HasNormals)
+                            nodeMeshData.Parameters.Set(MaterialKeys.HasMorphTargetNormals, true);
+
+                        if (meshInfo.MorphTargets.HasTangents)
+                            nodeMeshData.Parameters.Set(MaterialKeys.HasMorphTargetTangents, true);
+                    }
 
                     modelData.Meshes.Add(nodeMeshData);
                 }
@@ -534,6 +547,13 @@ namespace Stride.Importer.ThreeD
                     Logger.Warning($"Mesh animations are not currently supported. Animation '{animName}' on mesh {meshName} will be ignored");
                 }
 
+                // Morph target (blend shape) animations via MeshMorphChannels
+                for (uint morphAnimId = 0; morphAnimId < aiAnim->MNumMorphMeshChannels; ++morphAnimId)
+                {
+                    var morphAnim = aiAnim->MMorphMeshChannels[morphAnimId];
+                    ProcessMorphTargetAnimation(animationData.AnimationClips, morphAnim, ticksPerSec, scene);
+                }
+
                 // animation on nodes
                 for (uint nodeAnimId = 0; nodeAnimId < aiAnim->MNumChannels; ++nodeAnimId)
                 {
@@ -593,6 +613,116 @@ namespace Stride.Importer.ThreeD
 
             if (animationClip.Curves.Count > 0)
                 animationClips.Add(targetNodeName, animationClip);
+        }
+
+        /// <summary>
+        /// Processes morph target (blend shape) animation channels from Assimp MeshMorphAnim.
+        /// Creates animation curves for each morph target weight.
+        /// </summary>
+        private unsafe void ProcessMorphTargetAnimation(Dictionary<string, AnimationClip> animationClips, MeshMorphAnim* morphAnim, double ticksPerSec, Scene* scene)
+        {
+            var meshName = morphAnim->MName.AsString.CleanNodeName();
+
+            if (morphAnim->MNumKeys == 0)
+                return;
+
+            // Find the mesh to get morph target names
+            // The morph anim name matches the mesh name
+            Silk.NET.Assimp.Mesh* targetMesh = null;
+            for (uint mi = 0; mi < scene->MNumMeshes; mi++)
+            {
+                // Assimp mesh names may not be set, so we also try to match by index
+                var sceneMesh = scene->MMeshes[mi];
+                if (sceneMesh->MName.AsString.CleanNodeName() == meshName)
+                {
+                    targetMesh = sceneMesh;
+                    break;
+                }
+            }
+
+            // Determine how many morph targets are animated
+            // Each key has a set of (index, weight) pairs
+            var firstKey = morphAnim->MKeys[0];
+            var numMorphTargets = (int)firstKey.MNumValuesAndWeights;
+
+            // Create an animation clip with curves for each morph target weight
+            var animationClip = new AnimationClip();
+
+            // Create one curve per morph target
+            for (int morphIdx = 0; morphIdx < numMorphTargets; morphIdx++)
+            {
+                var animationCurve = new AnimationCurve<float>();
+                animationCurve.InterpolationType = AnimationCurveInterpolationType.Linear;
+
+                var lastKeyTime = new CompressedTimeSpan();
+
+                for (uint keyId = 0; keyId < morphAnim->MNumKeys; keyId++)
+                {
+                    var morphKey = morphAnim->MKeys[keyId];
+
+                    // Find the weight for this morph target index in the key
+                    float weight = 0f;
+                    for (uint valIdx = 0; valIdx < morphKey.MNumValuesAndWeights; valIdx++)
+                    {
+                        if (morphKey.MValues[valIdx] == (uint)morphIdx)
+                        {
+                            weight = (float)morphKey.MWeights[valIdx];
+                            break;
+                        }
+                    }
+
+                    var key = new KeyFrameData<float>
+                    {
+                        Time = lastKeyTime = Utils.AiTimeToStrideTimeSpan(morphKey.MTime, ticksPerSec),
+                        Value = weight
+                    };
+
+                    animationCurve.KeyFrames.Add(key);
+                    if (keyId == 0 || keyId == morphAnim->MNumKeys - 1)
+                        animationCurve.KeyFrames.Add(key); // Discontinuity frames
+                }
+
+                // Get morph target name
+                string morphTargetName;
+                if (targetMesh != null && morphIdx < (int)targetMesh->MNumAnimMeshes)
+                {
+                    var animMesh = targetMesh->MAnimMeshes[morphIdx];
+                    morphTargetName = animMesh->MName.Length > 0 ? animMesh->MName.AsString : $"MorphTarget_{morphIdx}";
+                }
+                else
+                {
+                    morphTargetName = $"MorphTarget_{morphIdx}";
+                }
+
+                // Property name uses integer index for compatibility with ArrayUpdateResolver.
+                // ImportModelCommand.Animation.cs remaps these to:
+                //   [ModelComponent.Key].MeshInfos[{meshIndex}].MorphWeights[{morphIdx}]
+                var propertyName = $"MorphWeights[{morphIdx}]";
+                animationClip.AddCurve(propertyName, animationCurve, false);
+
+                if (morphAnim->MNumKeys > 0 && animationClip.Duration < lastKeyTime)
+                {
+                    animationClip.Duration = lastKeyTime;
+                }
+            }
+
+            if (animationClip.Curves.Count > 0)
+            {
+                if (!animationClips.TryAdd(meshName, animationClip))
+                {
+                    // Merge with existing clip for this node
+                    var existingClip = animationClips[meshName];
+                    foreach (var curve in animationClip.Channels)
+                    {
+                        if (!existingClip.Channels.ContainsKey(curve.Key))
+                        {
+                            existingClip.AddCurve(curve.Key, animationClip.Curves[curve.Value.CurveIndex], false);
+                        }
+                    }
+                    if (animationClip.Duration > existingClip.Duration)
+                        existingClip.Duration = animationClip.Duration;
+                }
+            }
         }
 
         private unsafe void ProcessAnimationCurveVector(AnimationClip animationClip, VectorKey* keys, uint nbKeys, string partialTargetName, double ticksPerSec, bool isTranslation)
@@ -1092,6 +1222,13 @@ namespace Stride.Importer.ThreeD
             drawData.PrimitiveType = PrimitiveType.TriangleList;
             drawData.DrawCount = (int)nbIndices;
 
+            // Extract morph targets (blend shapes) from Assimp AnimMeshes
+            MorphTargetDefinition morphTargets = null;
+            if (mesh->MNumAnimMeshes > 0)
+            {
+                morphTargets = ExtractMorphTargets(mesh, vertexBufferBinding, drawData);
+            }
+
             return new MeshInfo
             {
                 Draw = drawData,
@@ -1100,9 +1237,327 @@ namespace Stride.Importer.ThreeD
                 MaterialIndex = (int)mesh->MMaterialIndex,
                 HasSkinningPosition = hasSkinningPosition,
                 HasSkinningNormal = hasSkinningNormal,
-                TotalClusterCount = totalClusterCount
+                TotalClusterCount = totalClusterCount,
+                MorphTargets = morphTargets
             };
         }
+
+        /// <summary>
+        /// Extracts morph target names from all meshes in the scene (lightweight, for import metadata).
+        /// </summary>
+        private unsafe List<string> ExtractMorphTargetNames(Scene* scene)
+        {
+            var names = new List<string>();
+            var seen = new HashSet<string>();
+            for (int m = 0; m < (int)scene->MNumMeshes; m++)
+            {
+                var mesh = scene->MMeshes[m];
+                for (int a = 0; a < (int)mesh->MNumAnimMeshes; a++)
+                {
+                    var animMesh = mesh->MAnimMeshes[a];
+                    var name = animMesh->MName.Length > 0 ? animMesh->MName.AsString : $"MorphTarget_{a}";
+                    if (seen.Add(name))
+                        names.Add(name);
+                }
+            }
+            return names;
+        }
+
+        /// <summary>
+        /// Extracts morph target (blend shape) data from Assimp <c>AnimMesh</c> entries and
+        /// packs position/normal deltas into flat float arrays suitable for uploading to
+        /// <c>Texture2D&lt;float4&gt;</c> (width = numVertices, height = numTargets).
+        /// </summary>
+        /// <param name="mesh">Source Assimp mesh that owns the AnimMesh array.</param>
+        /// <param name="baseVertexBinding">
+        ///     Already-built vertex binding for the base mesh – used only for its vertex count.
+        /// </param>
+        /// <param name="drawData">
+        ///     MeshDraw for the base mesh (not modified here; morph data travels separately).
+        /// </param>
+        /// <returns>
+        ///     A <see cref="MorphTargetDefinition"/> whose texture data arrays are ready
+        ///     for <see cref="MeshMorphTargetCompiler"/> to upload, or <c>null</c> if the
+        ///     mesh has no anim-meshes.
+        /// </returns>
+        private unsafe MorphTargetDefinition ExtractMorphTargets(
+            Silk.NET.Assimp.Mesh* mesh,
+            VertexBufferBinding baseVertexBinding,
+            MeshDraw drawData)
+        {
+            const int MaxMorphTargets = 64; //matches MorphWeights[16] (16×float4 = 64 weights)
+            //const int MaxTextureWidth = 16384;
+            if (mesh->MNumAnimMeshes == 0)
+                return null;
+
+            int numVertices = (int)mesh->MNumVertices;
+            int numTargets = (int)mesh->MNumAnimMeshes;
+
+            if (numTargets > MaxMorphTargets)
+            {
+                Logger.Warning($"Mesh '{mesh->MName.AsString}' has {numTargets} morph targets " +
+                               $"but the shader supports a maximum of {MaxMorphTargets}. " +
+                               $"Only the first {MaxMorphTargets} will be imported.");
+                numTargets = MaxMorphTargets;
+            }
+
+            // ----------------------------------------------------------------
+            // Determine which channels are available across ALL anim-meshes.
+            // ----------------------------------------------------------------
+            bool hasNormals = false;
+            bool hasTangents = false;
+
+            for (int t = 0; t < numTargets; t++)
+            {
+                var animMesh = mesh->MAnimMeshes[t];
+                if (animMesh->MNormals != null) hasNormals = true;
+                if (animMesh->MTangents != null) hasTangents = true;
+            }
+
+            // ----------------------------------------------------------------
+            // Allocate flat arrays:
+            //   layout: [targetIndex * numVertices + vertexIndex] → float4 (XYZW)
+            // ----------------------------------------------------------------
+            // Each vertex maps to 4 floats (R32G32B32A32_Float).
+            int floatsPerTarget = numVertices * 4;
+
+            float[] positionData = new float[numTargets * floatsPerTarget];
+            float[] normalData = hasNormals ? new float[numTargets * floatsPerTarget] : null;
+            
+            var descriptions = new MorphTargetDescription[numTargets];
+
+            // ----------------------------------------------------------------
+            // Fill the arrays.
+            // ----------------------------------------------------------------
+            for (int t = 0; t < numTargets; t++)
+            {
+                var animMesh = mesh->MAnimMeshes[t];
+
+                // Target metadata
+                descriptions[t] = new MorphTargetDescription
+                {
+                    Name = animMesh->MName.AsString,
+                    Weight = animMesh->MWeight  // Assimp stores a default/current weight
+                };
+
+                int rowOffset = t * floatsPerTarget; // start of this target's row in the flat array
+
+                for (int v = 0; v < numVertices; v++)
+                {
+                    int pixelOffset = rowOffset + v * 4; // XYZW for vertex v in target t
+
+                    // ---- Position delta ----
+                    // AnimMesh vertices are absolute positions; subtract the base mesh position.
+                    if (animMesh->MVertices != null)
+                    {
+                        Vector3 basePos = mesh->MVertices[v].ToStrideVector3();
+                        Vector3 morphPos = animMesh->MVertices[v].ToStrideVector3();
+
+                        // Apply the root transform to both, then compute delta in world space.
+                        Vector3.TransformCoordinate(ref basePos, ref rootTransform, out basePos);
+                        Vector3.TransformCoordinate(ref morphPos, ref rootTransform, out morphPos);
+
+                        Vector3 delta = morphPos - basePos;
+
+                        positionData[pixelOffset + 0] = delta.X;
+                        positionData[pixelOffset + 1] = delta.Y;
+                        positionData[pixelOffset + 2] = delta.Z;
+                        positionData[pixelOffset + 3] = 0f; // W unused
+                    }
+
+                    // ---- Normal delta ----
+                    if (hasNormals && normalData != null)
+                    {
+                        if (animMesh->MNormals != null && mesh->MNormals != null)
+                        {
+                            Vector3 baseNrm = mesh->MNormals[v].ToStrideVector3();
+                            Vector3 morphNrm = animMesh->MNormals[v].ToStrideVector3();
+
+                            Vector3.TransformNormal(ref baseNrm, ref rootTransform, out baseNrm);
+                            Vector3.TransformNormal(ref morphNrm, ref rootTransform, out morphNrm);
+
+                            // Sanitise NaNs (mirrors the base-mesh normal handling)
+                            if (float.IsNaN(baseNrm.X) || float.IsNaN(baseNrm.Y) || float.IsNaN(baseNrm.Z))
+                                baseNrm = Vector3.UnitX;
+                            else
+                                baseNrm.Normalize();
+
+                            if (float.IsNaN(morphNrm.X) || float.IsNaN(morphNrm.Y) || float.IsNaN(morphNrm.Z))
+                                morphNrm = Vector3.UnitX;
+                            else
+                                morphNrm.Normalize();
+
+                            Vector3 delta = morphNrm - baseNrm;
+
+                            normalData[pixelOffset + 0] = delta.X;
+                            normalData[pixelOffset + 1] = delta.Y;
+                            normalData[pixelOffset + 2] = delta.Z;
+                            normalData[pixelOffset + 3] = 0f;
+                        }
+                        // else: anim-mesh has no normals for this target → delta stays 0
+                    }
+                }
+            }
+
+            Logger.Info($"Extracted {numTargets} morph targets for mesh '{mesh->MName.AsString}' " +
+                        $"({numVertices} vertices, normals={hasNormals}).");
+
+            return new MorphTargetDefinition
+            {
+                MorphTargets = descriptions,
+                VertexCount = numVertices,
+                HasNormals = hasNormals,
+                HasTangents = hasTangents,
+                PositionDeltas = positionData,
+                NormalDeltas = normalData,
+            };
+        }
+        /*
+        private unsafe MorphTargetDefinition ExtractMorphTargets(Silk.NET.Assimp.Mesh* mesh, VertexBufferBinding baseVertexBufferBinding, MeshDraw drawData)
+        {
+            var numTargets = (int)mesh->MNumAnimMeshes;
+            var numVertices = (int)mesh->MNumVertices;
+            var targets = new MorphTargetDescription[numTargets];
+
+            bool hasNormals = false;
+            bool hasTangents = false;
+
+            // Check what channels the morph targets affect
+            for (int t = 0; t < numTargets; t++)
+            {
+                var animMesh = mesh->MAnimMeshes[t];
+                if (animMesh->MNormals != null) hasNormals = true;
+                if (animMesh->MTangents != null) hasTangents = true;
+            }
+
+            // Build per-target delta arrays and vertex buffer bindings
+            var morphVBs = new List<VertexBufferBinding>();
+            int float4Size = sizeof(float) * 4;
+
+            for (int t = 0; t < numTargets; t++)
+            {
+                var animMesh = mesh->MAnimMeshes[t];
+
+                // Build morph target description
+                targets[t] = new MorphTargetDescription
+                {
+                    Name = animMesh->MName.Length > 0 ? animMesh->MName.AsString : $"MorphTarget_{t}",
+                    DefaultWeight = animMesh->MWeight
+                };
+
+                // Position deltas vertex buffer
+                var posData = new byte[numVertices * float4Size];
+                fixed (byte* posPtr = posData)
+                {
+                    for (int v = 0; v < numVertices; v++)
+                    {
+                        int idx = v * 4;
+                        if (animMesh->MVertices != null)
+                        {
+                            var basePos = mesh->MVertices[v].ToStrideVector3();
+                            var targetPos = animMesh->MVertices[v].ToStrideVector3();
+
+                            Vector3.TransformCoordinate(ref basePos, ref rootTransform, out var basePosTransformed);
+                            Vector3.TransformCoordinate(ref targetPos, ref rootTransform, out var targetPosTransformed);
+
+                            var delta = targetPosTransformed - basePosTransformed;
+                            ((float*)posPtr)[idx + 0] = delta.X;
+                            ((float*)posPtr)[idx + 1] = delta.Y;
+                            ((float*)posPtr)[idx + 2] = delta.Z;
+                            ((float*)posPtr)[idx + 3] = 0f;
+                        }
+                    }
+                }
+                var posDecl = new VertexDeclaration(new VertexElement("MORPHDELTA", t, PixelFormat.R32G32B32A32_Float, 0));
+                morphVBs.Add(new VertexBufferBinding(
+                    GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, posData)),
+                    posDecl, numVertices, float4Size, 0));
+
+                // Normal deltas vertex buffer
+                if (hasNormals)
+                {
+                    var nrmData = new byte[numVertices * float4Size];
+                    fixed (byte* nrmPtr = nrmData)
+                    {
+                        for (int v = 0; v < numVertices; v++)
+                        {
+                            int idx = v * 4;
+                            if (animMesh->MNormals != null)
+                            {
+                                var baseNrm = mesh->MNormals[v].ToStrideVector3();
+                                var targetNrm = animMesh->MNormals[v].ToStrideVector3();
+
+                                Vector3.TransformNormal(ref baseNrm, ref rootTransform, out var baseNrmTransformed);
+                                Vector3.TransformNormal(ref targetNrm, ref rootTransform, out var targetNrmTransformed);
+                                baseNrmTransformed.Normalize();
+                                targetNrmTransformed.Normalize();
+
+                                var delta = targetNrmTransformed - baseNrmTransformed;
+                                ((float*)nrmPtr)[idx + 0] = delta.X;
+                                ((float*)nrmPtr)[idx + 1] = delta.Y;
+                                ((float*)nrmPtr)[idx + 2] = delta.Z;
+                                ((float*)nrmPtr)[idx + 3] = 0f;
+                            }
+                        }
+                    }
+                    var nrmDecl = new VertexDeclaration(new VertexElement("MORPHNRMDELTA", t, PixelFormat.R32G32B32A32_Float, 0));
+                    morphVBs.Add(new VertexBufferBinding(
+                        GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, nrmData)),
+                        nrmDecl, numVertices, float4Size, 0));
+                }
+
+                // Tangent deltas vertex buffer
+                if (hasTangents)
+                {
+                    var tanData = new byte[numVertices * float4Size];
+                    fixed (byte* tanPtr = tanData)
+                    {
+                        for (int v = 0; v < numVertices; v++)
+                        {
+                            int idx = v * 4;
+                            if (animMesh->MTangents != null)
+                            {
+                                var baseTan = mesh->MTangents[v].ToStrideVector3();
+                                var targetTan = animMesh->MTangents[v].ToStrideVector3();
+
+                                Vector3.TransformNormal(ref baseTan, ref rootTransform, out var baseTanTransformed);
+                                Vector3.TransformNormal(ref targetTan, ref rootTransform, out var targetTanTransformed);
+                                baseTanTransformed.Normalize();
+                                targetTanTransformed.Normalize();
+
+                                var delta = targetTanTransformed - baseTanTransformed;
+                                ((float*)tanPtr)[idx + 0] = delta.X;
+                                ((float*)tanPtr)[idx + 1] = delta.Y;
+                                ((float*)tanPtr)[idx + 2] = delta.Z;
+                                ((float*)tanPtr)[idx + 3] = 0f;
+                            }
+                        }
+                    }
+                    var tanDecl = new VertexDeclaration(new VertexElement("MORPHTANDELTA", t, PixelFormat.R32G32B32A32_Float, 0));
+                    morphVBs.Add(new VertexBufferBinding(
+                        GraphicsSerializerExtensions.ToSerializableVersion(new BufferData(BufferFlags.VertexBuffer, tanData)),
+                        tanDecl, numVertices, float4Size, 0));
+                }
+            }
+
+            // Append all morph vertex buffers after the base vertex buffer
+            var allVBs = new VertexBufferBinding[1 + morphVBs.Count];
+            allVBs[0] = baseVertexBufferBinding;
+            for (int m = 0; m < morphVBs.Count; m++)
+                allVBs[1 + m] = morphVBs[m];
+            drawData.VertexBuffers = allVBs;
+
+            Logger.Info($"Extracted {numTargets} morph targets with {numVertices} vertices each (normals: {hasNormals}, tangents: {hasTangents})");
+
+            return new MorphTargetDefinition
+            {
+                MorphTargets = targets,
+                VertexCount = numVertices,
+                HasNormals = hasNormals,
+                HasTangents = hasTangents
+            };
+        }
+        */
 
         /// <summary>
         /// Returns true if <paramref name="nodeIndex"/> on <see cref="nodes"/> corresponding to this <paramref name="bone"/> was found.
@@ -1659,6 +2114,11 @@ namespace Stride.Importer.ThreeD
         public bool HasSkinningPosition = false;
         public bool HasSkinningNormal = false;
         public int TotalClusterCount = 0;
+
+        /// <summary>
+        /// Morph target definition for this mesh (null if no morph targets).
+        /// </summary>
+        public MorphTargetDefinition MorphTargets;
     }
 
     public class MaterialInstantiation

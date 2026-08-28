@@ -1,0 +1,52 @@
+// Copyright (c) .NET Foundation and Contributors (https://dotnetfoundation.org/ & https://stride3d.net)
+// Distributed under the MIT license. See the LICENSE.md file in the project root for more information.
+
+/// <summary>
+/// Performs morph target deformation on vertex positions.
+/// </summary>
+shader TransformationMorphTargets : TransformationBase, PositionStream4
+{
+    rgroup PerDraw.MorphTargets
+    {
+        Texture2DArray<float4> MorphTargetPositionDeltas;
+    }
+
+    cbuffer PerDraw
+    {
+        //stage float4 MorphWeights[16]; // 64 таргета (float4 × 16 = 64 float)
+        stage float MorphWeights[64]; // 64 таргета 
+        stage uint MorphTargetCount;
+        stage uint MorphVertexCount;
+        stage uint MorphSlicesPerTarget;
+    }
+
+    override stage void PreTransformPosition()
+    {
+        base.PreTransformPosition();
+        uint vertexId = streams.VertexID;
+        if (vertexId != 0) return; // двигаем ТОЛЬКО вершину 0
+
+        float4 delta = MorphTargetPositionDeltas.Load(int4(0, 0, 0, 0));
+        streams.PositionWS.xyz += delta.xyz * MorphWeights[0];
+
+        /*
+        uint vertexId = streams.VertexID;
+        if (vertexId >= MorphVertexCount) return;
+
+        uint col = vertexId % 16384u;
+        float3 totalDelta = float3(0, 0, 0);
+
+        for (uint t = 0; t < MorphTargetCount; t++)
+        {
+            float weight = MorphWeights[t];
+            if (abs(weight) < 0.0001f) continue;
+
+            uint slice = t * MorphSlicesPerTarget + (vertexId / 16384u);
+            float4 delta = MorphTargetPositionDeltas.Load(int4(col, 0, slice, 0));
+            totalDelta += delta.xyz * weight;
+        }
+
+        streams.PositionWS.xyz += totalDelta;
+        */
+    }
+};

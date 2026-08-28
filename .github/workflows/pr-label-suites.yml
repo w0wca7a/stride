@@ -76,6 +76,17 @@ jobs:
     with:
       build-type: Debug
 
+  # Android: identical pattern to iOS, gated on the android path filter.
+  android:
+    needs: changes
+    if: >
+      contains(github.event.pull_request.labels.*.name, 'ci-android')
+      && ((github.event.pull_request.draft == true && !contains(github.event.pull_request.labels.*.name, 'ci-run-on-draft'))
+          || needs.changes.outputs.android != 'true')
+    uses: ./.github/workflows/test-android-game.yml
+    with:
+      build-type: Debug
+
   # Aggregate result for the forced suites. always() so a cancellation reports red, not skipped.
   # Skipped suites (label absent) are fine; only failure/cancellation fails the gate. Mark this
   # "Label Suites Gate" check required in branch protection to make forced suites blocking.

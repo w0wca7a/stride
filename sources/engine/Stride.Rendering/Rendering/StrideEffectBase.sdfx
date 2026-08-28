@@ -90,6 +90,27 @@ namespace Stride.Rendering
 
 
         // -----------------------------------------------
+        // Performs morph target (blend shape) deformation
+        // Must come before skinning so deltas are applied in mesh/object space
+        // -----------------------------------------------
+        if (MaterialKeys.HasMorphTargets)
+        {
+            mixin TransformationMorphTargets;
+            mixin TransformationMorphTargetsTest;
+
+            if (MaterialKeys.HasMorphTargetNormals)
+            {
+                mixin NormalMeshMorphTargets;
+                mixin NormalMeshMorphTargetsTest;
+            }
+
+            if (MaterialKeys.HasMorphTargetTangents)
+            {
+                mixin TangentMeshMorphTargets;
+            }
+        }
+
+        // -----------------------------------------------
         // Performs animation skinning (position, normal and tangent)
         // -----------------------------------------------
         if (MaterialKeys.HasSkinningPosition)

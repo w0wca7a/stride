@@ -343,6 +343,28 @@
              Properties="TargetFramework=$(StrideFramework)" />
   </Target>
 
+  <!-- Strip test-SDK globals from the auto-attached CompilerApp ref (its own strip list
+       stays generic — it ships to end users). -->
+  <ItemGroup Condition="'$(StrideCompileAssets)' == 'true' And '$(StrideCompilerTargetsEnable)' != 'false'">
+    <ProjectReference Update="@(ProjectReference)" Condition="$([System.String]::Copy('%(Filename)').Equals('Stride.AssetCompiler'))">
+      <GlobalPropertiesToRemove>%(GlobalPropertiesToRemove);IncludeXunitLauncher;StrideTestPlatforms;StrideExplicitMacOSRuntime</GlobalPropertiesToRemove>
+    </ProjectReference>
+  </ItemGroup>
+
+  <!-- Force the Game inner build to finish before any peer TFM (Android/iOS/macOS) runs
+       StrideCompileAsset. CompilerApp resolves the project's TargetPath via VSProjectHelper
+       which picks TargetFrameworks.First() — that's $(StrideFramework) = Game. Cross-targeting
+       dispatches inner builds in parallel by default, so without this barrier a peer TFM's
+       compile-asset step can race ahead of Game finishing. Re-entering the same csproj is
+       cached by MSBuild — no-op if Game is already built, blocking barrier otherwise. -->
+  <Target Name="_StrideWaitForGameInnerBuild"
+          BeforeTargets="StrideCompileAsset"
+          Condition="$(_StrideTestPlatforms.Contains(';Game;')) And '$(StridePlatform)' != 'Game' And '$(StrideIsExecutable)' == 'true' And '$(StrideCompilerSkipBuild)' != 'true'">
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+             Targets="Build"
+             Properties="TargetFramework=$(StrideFramework)" />
+  </Target>
+
   <!-- Shader code generation support is inherited from Stride.Build.Sdk -->
 
   <!-- ================================================================ -->

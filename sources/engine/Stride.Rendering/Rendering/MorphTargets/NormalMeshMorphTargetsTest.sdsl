@@ -1,0 +1,12 @@
+shader NormalMeshMorphTargetsTest : NormalFromMesh, TransformationMorphTargetsTest
+{
+	override stage void GenerateNormal_VS()
+    {
+        // Базовая нормаль меша + накопленная дельта, затем нормализация
+        float3 morphedNormal = normalize(streams.meshNormal + streams.morphNormalDelta);
+        streams.normalWS = morphedNormal;
+
+        // Быстрый хак без текстуры нормалей:
+        // streams.normalWS = normalize(streams.meshNormal + streams.morphNormalDelta * 0.5);
+    }
+};

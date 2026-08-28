@@ -197,6 +197,25 @@ public sealed partial class Package : IFileSynchronizable, IAssetFinder
     private bool ShouldSerializeAssetNamespace() => AssetNamespace is not null;
 
     /// <summary>
+    /// Asset URL namespace: unset = the package name (the default), any other value = that custom
+    /// prefix. Packed sdpkgs store the resolved name.
+    /// </summary>
+    [DataMember(106)]
+    [DefaultValue(null)]
+    public string? AssetNamespace { get; set; }
+
+    // Keep saved .sdpkg files minimal: skip empty collections (ShouldSerialize* is discovered by ObjectDescriptor).
+    private bool ShouldSerializeAssetFolders() => AssetFolders.Count > 0;
+    private bool ShouldSerializeResourceFolders() => ResourceFolders.Count > 0;
+    private bool ShouldSerializeOutputGroupDirectories() => OutputGroupDirectories.Count > 0;
+    private bool ShouldSerializeExplicitFolders() => ExplicitFolders.Count > 0;
+    private bool ShouldSerializeBundles() => Bundles.Count > 0;
+    private bool ShouldSerializeTemplateFolders() => TemplateFolders.Count > 0;
+    private bool ShouldSerializeRootAssets() => RootAssets.Count > 0;
+    private bool ShouldSerializeAssetAssemblies() => AssetAssemblies.Count > 0;
+    private bool ShouldSerializeAssetNamespace() => AssetNamespace is not null;
+
+    /// <summary>
     /// Gets the loaded templates from the <see cref="TemplateFolders"/>
     /// </summary>
     /// <value>The templates.</value>

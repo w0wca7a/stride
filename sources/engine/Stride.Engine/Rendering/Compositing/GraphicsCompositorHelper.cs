@@ -129,6 +129,7 @@ namespace Stride.Rendering.Compositing
                         RenderFeatures =
                         {
                             new TransformRenderFeature(),
+                            //new MorphTargetRenderFeature(),
                             new SkinningRenderFeature(),
                             new MaterialRenderFeature(),
                             new ShadowCasterRenderFeature(),

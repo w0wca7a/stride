@@ -10,48 +10,8 @@ Hierarchy:
         - ref!! aa9f45b3-a8f2-4b7c-8723-446504667459
         - ref!! dbc67230-cb46-4563-8193-084016acd341
         - ref!! 94061a3c-bbe5-4ad6-b55c-5905873264e1
-        - ref!! 14088c66-6d9b-4e26-a601-9784ff3ae859
-        - ref!! f63efa01-c45a-4b81-ad59-e49391a813e4
-        - ref!! 1c1ced43-f10b-4f46-93e7-9f75eb681c5e
-        - ref!! bb7065d2-498a-45d7-b4b1-0bb1a573cc69
-        - ref!! df07ee24-de65-4561-8f4a-da086654e07b
-        - ref!! cbaa8520-30cd-4b52-a6cb-f55adc4dab16
+        - ref!! 8d5647c2-79b8-4d1e-a9ee-971356db7629
     Parts:
-        -   Entity:
-                Id: 14088c66-6d9b-4e26-a601-9784ff3ae859
-                Name: Camera back
-                Components:
-                    fc4c60d3230cac4c9f382af551a981de: !TransformComponent
-                        Id: d3604cfc-0c23-4cac-9f38-2af551a981de
-                        Position: {X: 0.0, Y: 0.879, Z: -3.69}
-                        Rotation: {X: 0.0, Y: 1.0, Z: 0.0, W: -4.371139E-08}
-                        Scale: {X: 1.0, Y: 1.0, Z: 1.0}
-                        Children: {}
-                    4cffc907fb2645499fd1899f98a86e77: !CameraComponent
-                        Id: 07c9ff4c-26fb-4945-9fd1-899f98a86e77
-                        Name: null
-                        Projection: Perspective
-                        AspectRatio: 0.56
-                        Slot: b52cb3ea-3070-4405-af33-6d9d57a7e4e2
-        -   Entity:
-                Id: 1c1ced43-f10b-4f46-93e7-9f75eb681c5e
-                Name: RenderToTexture
-                Components:
-                    d8db6c5da878184da0683a2cef4e0a19: !TransformComponent
-                        Id: 5d6cdbd8-78a8-4d18-a068-3a2cef4e0a19
-                        Position: {X: 0.25, Y: 2.85, Z: -1.0}
-                        Rotation: {X: 0.0, Y: 0.0, Z: 0.0, W: 1.0}
-                        Scale: {X: 1.0, Y: 1.0, Z: 1.0}
-                        Children: {}
-                    18d30692ec0eaa4bac05b1cd6e893efa: !SpriteComponent
-                        Id: 9206d318-0eec-4baa-ac05-b1cd6e893efa
-                        SpriteProvider: !SpriteFromTexture
-                            Texture: 2355d4e2-1680-48ca-8ad6-34d291c1489d:RenderTexture
-                            PixelsPerUnit: 450.0
-                            Center: {X: 0.0, Y: 0.0}
-                            CenterFromMiddle: false
-                        SpriteType: Billboard
-                        Color: {R: 1.0, G: 1.0, B: 1.0, A: 1.0}
         -   Entity:
                 Id: 883e544b-9579-48c0-b731-9b8de2d287e4
                 Name: Ambient light
@@ -69,12 +29,28 @@ Hierarchy:
                                 Value: {R: 1.0, G: 1.0, B: 1.0}
                         Intensity: 0.3
         -   Entity:
+                Id: 8d5647c2-79b8-4d1e-a9ee-971356db7629
+                Name: MorphCube
+                Components:
+                    af37eda7c027925463c336db47aab39b: !TransformComponent
+                        Id: 45080e18-6bff-4faf-99fb-1fddfbff652c
+                        Position: {X: 0.0, Y: 1.2, Z: 0.0}
+                        Rotation: {X: 0.12607862, Y: 0.25660482, Z: -0.033782665, W: 0.9576622}
+                        Scale: {X: 0.5, Y: 0.5, Z: 0.5}
+                        Children: {}
+                    12107335005c2ad5023703f7ecdcb3cc: !ModelComponent
+                        Id: 3e715dfa-733a-4555-8c30-8da5969779b2
+                        Model: d5a7dc9b-4ce5-4e00-beb9-3b341aca4f6d:Models/AnimatedMorphCube
+                        Materials: {}
+                    7f7c493c9a8fa98e675543e6419ab19e: !MorphTargetSample.GltfMorphTestScript,MorphTargetSample.Game
+                        Id: 943f9b94-8377-4916-a5bf-81b706d173ae
+        -   Entity:
                 Id: 94061a3c-bbe5-4ad6-b55c-5905873264e1
                 Name: Camera front
                 Components:
                     ca0fdce30b37944f88d55b23fc487deb: !TransformComponent
                         Id: e3dc0fca-370b-4f94-88d5-5b23fc487deb
-                        Position: {X: 0.0, Y: 1.15, Z: 3.08}
+                        Position: {X: 0.0, Y: 1.5, Z: 4.0}
                         Rotation: {X: 0.0, Y: 0.0, Z: 0.0, W: 1.0}
                         Scale: {X: 1.0, Y: 1.0, Z: 1.0}
                         Children: {}
@@ -203,3 +179,7 @@ Hierarchy:
                         Materials: {}
                     24fb76771c4b9b4c8f325d42d5db7699: !AnimatedModel.RotateEntity,AnimatedModel.Game
                         Id: 7776fb24-4b1c-4c9b-8f32-5d42d5db7699
+                    b1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6: !MorphTargetSample.MorphTargetScript,MorphTargetSample.Game
+                        Id: e4d3c2b1-a6f5-c8b7-d9e0-f1a2b3c4d5e6
+                    a1a2a3a4a5a6a7a8a9a0b1b2b3b4b5b6: !MorphTargetSample.GltfMorphTestScript,MorphTargetSample.Game
+                        Id: a4a3a2a1-a6a5-a8a7-a9a0-b1b2b3b4b5b6

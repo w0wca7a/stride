@@ -37,6 +37,12 @@ namespace Stride.Rendering
 
         public Matrix[] BlendMatrices;
 
+        /// <summary>
+        /// Current morph target weights for this mesh instance.
+        /// Array length matches <see cref="MorphTargetDefinition.MorphTargetCount"/>.
+        /// </summary>
+        public float[] MorphWeights;
+
         public int InstanceCount;
     }
 }

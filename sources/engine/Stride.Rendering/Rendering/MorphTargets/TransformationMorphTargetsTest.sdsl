@@ -1,0 +1,64 @@
+shader TransformationMorphTargetsTest : TransformationBase, PositionStream4, NormalStream
+{
+    rgroup PerDraw.MorphTargetsTest
+    {
+        //Texture2DArray<float4> MorphTestPositionDeltas;
+        //Texture2D<float4> MorphTestPositionDeltas;
+        //Texture2D<float4> MorphTestNormalDeltas;
+
+        StructuredBuffer<float4> MorphedPositions;
+        StructuredBuffer<float4> MorphedNormals;
+    }
+    /*
+    cbuffer PerDraw
+    {
+        stage float MorphTestWeight;
+        stage float4 MorphTestWeights[16];        
+        stage int MorphTestTargetCount;
+        stage int MorphTestVertexCount;
+    }
+    stage stream float3 morphNormalDelta;
+    */
+
+    override stage void PreTransformPosition()
+    {        
+        base.PreTransformPosition();
+
+        uint vertexId = streams.VertexID;
+
+        streams.PositionWS.xyz += MorphedPositions[vertexId].xyz;
+        /*
+        if (vertexId >= MorphTestVertexCount || MorphTestTargetCount <= 0)
+            return;
+        float3 positionDelta = float3(0, 0, 0);
+        float3 normalDelta   = float3(0, 0, 0);
+        
+        for (int i = 0; i < MorphTestTargetCount; i++)
+        {
+            int vi = i >> 2;        // i / 4
+            int ci = i & 3;         // i % 4
+
+            //float weight = MorphTestWeights[i];
+            float weight;
+            if      (ci == 0) weight = MorphTestWeights[vi].x;
+            else if (ci == 1) weight = MorphTestWeights[vi].y;
+            else if (ci == 2) weight = MorphTestWeights[vi].z;
+            else              weight = MorphTestWeights[vi].w;
+
+            if (weight == 0)
+                continue;
+
+            //float4 delta = MorphTestPositionDeltas.Load(int3(vertexId, i, 0));
+            float4 pd = MorphTestPositionDeltas.Load(int3(vertexId, i, 0));
+            float4 nd = MorphTestNormalDeltas.Load(int3(vertexId, i, 0));
+
+            //streams.PositionWS.xyz += delta.xyz * MorphTestWeight;
+            positionDelta += pd.xyz * weight;
+            normalDelta   += nd.xyz * weight;
+        }
+
+        streams.PositionWS.xyz += positionDelta;
+        streams.morphNormalDelta = normalDelta; // передаём в NormalMesh шейдер
+        */
+    }
+};

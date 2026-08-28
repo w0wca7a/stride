@@ -45,6 +45,7 @@ namespace Stride.Assets.Presentation.Templates
         private bool deduplicateMaterials = true;
         private bool importTextures = true;
         private bool importAnimations = true;
+        private bool importMorphTargets = true;
         private bool importSkeleton = true;
         private bool dontImportSkeleton;
         private bool reuseSkeleton;
@@ -64,6 +65,8 @@ namespace Stride.Assets.Presentation.Templates
         public bool ImportTextures { get { return importTextures; } set { SetValue(ref importTextures, value); } }
 
         public bool ImportAnimations { get { return importAnimations; } set { SetValue(ref importAnimations, value); } }
+
+        public bool ImportMorphTargets { get { return importMorphTargets; } set { SetValue(ref importMorphTargets, value); } }
 
         public bool ImportSkeleton { get { return importSkeleton; } set { SetValue(ref importSkeleton, value); } }
 
